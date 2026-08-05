@@ -43,93 +43,8 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         getServer().getMessenger().registerIncomingPluginChannel(this, SettingsDialogService.CHANNEL, settingsDialogService);
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:settings_update");
         
-        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, commands -> {
-            // /nick [name|random]
-            commands.registrar().register(
-                Commands.literal("nick")
-                    .executes(ctx -> {
-                        CommandSender sender = ctx.getSource().getSender();
-                        if (!(sender instanceof Player player)) {
-                            sender.sendMessage(prefix.append(Component.text("Only players can use this command.", NamedTextColor.RED)));
-                            return Command.SINGLE_SUCCESS;
-                        }
-                        handleNick(player, new String[0]);
-                        return Command.SINGLE_SUCCESS;
-                    })
-                    .then(Commands.argument("args", StringArgumentType.greedyString())
-                        .executes(ctx -> {
-                            CommandSender sender = ctx.getSource().getSender();
-                            if (!(sender instanceof Player player)) {
-                                sender.sendMessage(prefix.append(Component.text("Only players can use this command.", NamedTextColor.RED)));
-                                return Command.SINGLE_SUCCESS;
-                            }
-                            String argsStr = StringArgumentType.getString(ctx, "args");
-                            String[] args = argsStr.split(" ");
-                            handleNick(player, args);
-                            return Command.SINGLE_SUCCESS;
-                        })
-                    )
-                    .build(),
-                "Set or randomize your nickname, appearance, and tab name",
-                List.of()
-            );
-
-            // /vanish
-            commands.registrar().register(
-                Commands.literal("vanish")
-                    .executes(ctx -> {
-                        CommandSender sender = ctx.getSource().getSender();
-                        if (!(sender instanceof Player player)) {
-                            sender.sendMessage(prefix.append(Component.text("Only players can use this command.", NamedTextColor.RED)));
-                            return Command.SINGLE_SUCCESS;
-                        }
-                        handleVanish(player);
-                        return Command.SINGLE_SUCCESS;
-                    })
-                    .build(),
-                "Toggle visibility in tab and world",
-                List.of()
-            );
-
-            // /settings
-            commands.registrar().register(
-                Commands.literal("settings")
-                    .executes(ctx -> {
-                        CommandSender sender = ctx.getSource().getSender();
-                        settingsDialogService.onCommand(sender, null, "settings", new String[0]);
-                        return Command.SINGLE_SUCCESS;
-                    })
-                    .then(Commands.argument("args", StringArgumentType.greedyString())
-                        .executes(ctx -> {
-                            CommandSender sender = ctx.getSource().getSender();
-                            String argsStr = StringArgumentType.getString(ctx, "args");
-                            String[] args = argsStr.split(" ");
-                            settingsDialogService.onCommand(sender, null, "settings", args);
-                            return Command.SINGLE_SUCCESS;
-                        })
-                    )
-                    .build(),
-                "Open the settings GUI",
-                List.of()
-            );
-            // /friends
-            commands.registrar().register(
-                Commands.literal("friends")
-                    .executes(ctx -> {
-                        CommandSender sender = ctx.getSource().getSender();
-                        if (sender instanceof Player player) {
-                            try {
-                                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                                DataOutputStream data = new DataOutputStream(out);
-                                data.writeUTF(player.getUniqueId().toString());
-                                player.sendPluginMessage(BeaconLabsVelocityLink.this, "beaconlabs:friend_request", out.toByteArray());
-                            } catch (Exception e) {}
-                        }
-                        return Command.SINGLE_SUCCESS;
-                    }).build(),
-                "Open friends GUI",
-                List.of()
-            );
+        this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
+            org.bcnlab.beaconLabsVelocityLink.utils.CommandRegistry.registerAll(this, event.registrar());
         });
         
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:friend_request");
@@ -157,7 +72,7 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
 
 
 
-    private boolean handleNick(Player player, String[] args) {
+    public boolean handleNick(Player player, String[] args) {
         String nickname;
         String fakeRank = null;
         if (args.length == 0) {
@@ -188,7 +103,20 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         return true;
     }
 
-    private boolean handleVanish(Player player) {
+    
+    public void handleSettings(org.bukkit.entity.Player player, String[] args) {
+        settingsDialogService.onCommand(player, null, "settings", args);
+    }
+    public void handleFriends(org.bukkit.entity.Player player, String[] args) {
+        try {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            java.io.DataOutputStream data = new java.io.DataOutputStream(out);
+            data.writeUTF(player.getUniqueId().toString());
+            player.sendPluginMessage(this, "beaconlabs:friend_request", out.toByteArray());
+        } catch (Exception e) {}
+    }
+
+    public boolean handleVanish(Player player) {
         getLogger().info("[CMD] /vanish player=" + player.getName() + " uuid=" + player.getUniqueId());
         visualStateService.toggleVanish(player);
         sendToProxy(player, "VANISH", "", "");
@@ -205,6 +133,13 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
             data.writeUTF(action);
             data.writeUTF(nickname != null ? nickname : "");
             data.writeUTF(skinSource != null ? skinSource : "");
+            
+            String rank = "";
+            if (visualStateService != null) {
+                rank = visualStateService.getFakeRank(player);
+            }
+            data.writeUTF(rank != null ? rank : "");
+            
             data.flush();
             byte[] bytes = out.toByteArray();
             getLogger().info("[CMD] Sending " + bytes.length + " bytes to proxy on channel " + VisualStateService.CHANNEL);

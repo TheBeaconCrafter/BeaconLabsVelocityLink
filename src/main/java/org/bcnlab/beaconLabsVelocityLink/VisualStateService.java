@@ -109,6 +109,11 @@ public final class VisualStateService implements PluginMessageListener, Listener
         applyVanishState(player, !current);
     }
 
+    public String getOriginalName(Player player) {
+        com.destroystokyo.paper.profile.PlayerProfile original = originalProfiles.get(player.getUniqueId());
+        return original != null ? original.getName() : player.getName();
+    }
+
     private void applyState(Player player, String nickname, String skinSource, boolean vanished) {
         if (player == null || !player.isOnline()) return;
 
@@ -162,30 +167,26 @@ public final class VisualStateService implements PluginMessageListener, Listener
             log.warning("[VS] Failed to set profile name for " + player.getName());
         }
         
-        // Update TAB plugin formatting
-        if (nickname != null && !nickname.isBlank()) {
-            String fakeRank = getFakeRank(player);
-            if (fakeRank == null || fakeRank.isBlank()) fakeRank = "default";
-            
-            // Get prefix from LuckPerms for the fake rank
-            String fakePrefix = getLuckPermsPrefix(fakeRank);
-            // Update TAB plugin formatting
-            // TAB requires setting customtabname/customtagname, removing quotes because they might be taken literally
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix " + fakePrefix);
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagprefix " + fakePrefix);
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtabname " + fakePrefix + name);
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname " + fakePrefix + name);
-        } else {
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix remove");
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagprefix remove");
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtabname remove");
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname remove");
-        }
+        // Update TAB plugin formatting via API (with small delay to let profile changes propagate)
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) return;
+            if (nickname != null && !nickname.isBlank()) {
+                String fakeRank = getFakeRank(player);
+                if (fakeRank == null || fakeRank.isBlank()) fakeRank = "default";
+                
+                // Get prefix from LuckPerms for the fake rank
+                String fakePrefix = getLuckPermsPrefix(fakeRank);
+                updateTabPlugin(player, fakePrefix, name);
+            } else {
+                updateTabPlugin(player, null, null);
+            }
+        }, 5L);
         
         // Force NametagGenerator to update the underlying scoreboard teams
         org.bukkit.plugin.Plugin corePlugin = Bukkit.getPluginManager().getPlugin("BeaconLabsCore");
         if (corePlugin != null) {
-            Bukkit.getScheduler().runTask(plugin, () -> {
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                if (!player.isOnline()) return;
                 try {
                     Object generator = corePlugin.getClass().getDeclaredField("nametagGenerator").get(corePlugin);
                     if (generator != null) {
@@ -194,8 +195,76 @@ public final class VisualStateService implements PluginMessageListener, Listener
                 } catch (Exception e) {
                     // Ignore if missing
                 }
-            });
+            }, 10L);
         }
+        
+        // When unnicking, explicitly refresh viewers so nametag above head updates
+        if (nickname == null || nickname.isBlank()) {
+            if (!Boolean.TRUE.equals(vanishedPlayers.get(player.getUniqueId()))) {
+                refreshViewersDelayed(player);
+            }
+        }
+    }
+    
+    private void updateTabPlugin(Player player, String prefix, String name) {
+        if (!Bukkit.getPluginManager().isPluginEnabled("TAB")) {
+            return;
+        }
+        try {
+            Class<?> tabApiClass = Class.forName("me.neznamy.tab.api.TabAPI");
+            Object tabApi = tabApiClass.getMethod("getInstance").invoke(null);
+            if (tabApi == null) return;
+            
+            Object tabPlayer = tabApiClass.getMethod("getPlayer", java.util.UUID.class).invoke(tabApi, player.getUniqueId());
+            if (tabPlayer == null) return;
+            
+            Object tabListMgr = tabApiClass.getMethod("getTabListFormatManager").invoke(tabApi);
+            Object nameTagMgr = tabApiClass.getMethod("getNameTagManager").invoke(tabApi);
+            
+            Object prefixObj = getTabComponent(prefix);
+            Object nameObj = getTabComponent(name);
+
+            if (tabListMgr != null) {
+                invokeMethod(tabListMgr, "setPrefix", tabPlayer, prefixObj);
+                invokeMethod(tabListMgr, "setName", tabPlayer, nameObj);
+            }
+            if (nameTagMgr != null) {
+                invokeMethod(nameTagMgr, "setPrefix", tabPlayer, prefixObj);
+            }
+        } catch (Throwable t) {
+            log.warning("[VS] Failed to update TAB plugin: " + t.getMessage());
+        }
+    }
+
+    private Object getTabComponent(String text) {
+        if (text == null) return null;
+        try {
+            Class<?> clazz = Class.forName("me.neznamy.tab.api.chat.TabComponent");
+            return clazz.getMethod("optimized", String.class).invoke(null, text);
+        } catch (Exception e1) {
+            try {
+                Class<?> clazz = Class.forName("me.neznamy.tab.shared.chat.TabComponent");
+                return clazz.getMethod("optimized", String.class).invoke(null, text);
+            } catch (Exception e2) {
+                try {
+                    Class<?> clazz = Class.forName("me.neznamy.tab.api.chat.IChatBaseComponent");
+                    return clazz.getMethod("optimizedComponent", String.class).invoke(null, text);
+                } catch (Exception e3) {
+                    return text; // Fallback if it accepts String
+                }
+            }
+        }
+    }
+
+    private void invokeMethod(Object manager, String methodName, Object tabPlayer, Object value) {
+        try {
+            for (java.lang.reflect.Method m : manager.getClass().getMethods()) {
+                if (m.getName().equals(methodName) && m.getParameterCount() == 2) {
+                    m.invoke(manager, tabPlayer, value);
+                    return;
+                }
+            }
+        } catch (Exception e) {}
     }
 
     private void cleanupTeams(Player player) {
