@@ -126,7 +126,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                             .decoration(TextDecoration.ITALIC, false));
                 }
                 lore.add(Component.empty());
-                lore.add(Component.text("Left-Click to message", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
+                lore.add(Component.text("Left-Click to jump to server", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
                 lore.add(Component.text("Right-Click to remove", NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
                 
                 meta.lore(lore);
@@ -185,12 +185,37 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                         if (meta != null && meta.getOwningPlayer() != null) {
                             String name = meta.getOwningPlayer().getName();
                             if (name == null) name = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(meta.displayName());
+                            
                             if (event.isLeftClick()) {
                                 player.closeInventory();
-                                player.sendMessage(MiniMessage.miniMessage().deserialize("<yellow>You can message them by typing <green>/msg " + name + " &lt;message&gt;</green></yellow>"));
+                                List<FriendData> friends = playerFriendsCache.getOrDefault(player.getUniqueId(), new ArrayList<>());
+                                String targetServer = null;
+                                for (FriendData fd : friends) {
+                                    if (fd.uuid.equals(meta.getOwningPlayer().getUniqueId())) {
+                                        targetServer = fd.server;
+                                        break;
+                                    }
+                                }
+                                if (targetServer != null && !targetServer.isBlank() && !targetServer.equals("Hidden")) {
+                                    try {
+                                        java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                                        java.io.DataOutputStream out = new java.io.DataOutputStream(b);
+                                        out.writeUTF("Connect");
+                                        out.writeUTF(targetServer);
+                                        player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
+                                    } catch (Exception e) {}
+                                } else {
+                                    player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Could not connect to this friend's server.</red>"));
+                                }
                             } else if (event.isRightClick()) {
                                 player.closeInventory();
-                                player.chat("/friend remove " + name);
+                                try {
+                                    java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                                    java.io.DataOutputStream out = new java.io.DataOutputStream(b);
+                                    out.writeUTF(player.getUniqueId().toString());
+                                    out.writeUTF("friend remove " + name);
+                                    player.sendPluginMessage(plugin, "beaconlabs:proxy_command", b.toByteArray());
+                                } catch (Exception e) {}
                             }
                         }
                     }

@@ -133,6 +133,7 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         });
         
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:friend_request");
+        getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:proxy_command");
         
         saveDefaultConfig();
         prefixString = getConfig().getString("prefix", "<gold>BeaconLabs</gold> <dark_gray>»</dark_gray> ");

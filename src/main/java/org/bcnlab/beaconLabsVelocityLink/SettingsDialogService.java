@@ -174,12 +174,19 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
         };
     }
 
+    private String cycleServerPrivacy(String current) {
+        return switch (current.toLowerCase()) {
+            case "friends_only" -> "nobody";
+            default -> "friends_only";
+        };
+    }
+
     private String formatValue(String value) {
         if (value == null) return "Unknown";
         return switch (value.toLowerCase()) {
-            case "everyone" -> "Everyone";
-            case "friends_only" -> "Friends Only";
-            case "nobody" -> "Nobody";
+            case "everyone" -> "everyone";
+            case "friends_only" -> "friends only";
+            case "nobody" -> "nobody";
             default -> value;
         };
     }
@@ -200,8 +207,8 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
                         sendUpdateToProxy(player, "msg_privacy", next);
                         player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                         openSettingsGUI(player); // refresh
-                    } else if (event.getRawSlot() == 15) {
-                        // Friends
+                    } else if (event.getRawSlot() == 13) {
+                        // Friend Requests
                         String current = friendReqCache.getOrDefault(player.getUniqueId(), "everyone");
                         String next = cycleFriendReq(current);
                         friendReqCache.put(player.getUniqueId(), next);
@@ -210,8 +217,8 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
                         openSettingsGUI(player); // refresh
                     } else if (event.getRawSlot() == 15) {
                         // Server Privacy
-                        String current = friendServerCache.getOrDefault(player.getUniqueId(), "everyone");
-                        String next = cycleMsgPrivacy(current); // Uses same cycle as msgPrivacy (everyone -> friends_only -> nobody)
+                        String current = friendServerCache.getOrDefault(player.getUniqueId(), "friends_only");
+                        String next = cycleServerPrivacy(current);
                         friendServerCache.put(player.getUniqueId(), next);
                         sendUpdateToProxy(player, "friend_server", next);
                         player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);

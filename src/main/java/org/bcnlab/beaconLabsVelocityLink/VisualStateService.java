@@ -138,19 +138,46 @@ public final class VisualStateService implements PluginMessageListener, Listener
         } catch (Exception e) {
             log.warning("[VS] Failed to set profile name for " + player.getName());
         }
-
-        // Call BeaconLabsCore NametagGenerator if available to update the prefix/suffix instantly
-        org.bukkit.Bukkit.getScheduler().runTask(plugin, () -> {
+        
+        // Update TAB plugin formatting
+        if (nickname != null && !nickname.isBlank()) {
+            String fakeRank = getFakeRank(player);
+            if (fakeRank == null || fakeRank.isBlank()) fakeRank = "default";
+            
+            // Get prefix from LuckPerms for the fake rank
+            String fakePrefix = "";
             try {
-                org.bukkit.plugin.Plugin corePlugin = org.bukkit.Bukkit.getPluginManager().getPlugin("BeaconLabsCore");
-                if (corePlugin != null) {
-                    Object nametagGenerator = corePlugin.getClass().getMethod("getNametagGenerator").invoke(corePlugin);
-                    if (nametagGenerator != null) {
-                        nametagGenerator.getClass().getMethod("updatePlayerNametag", Player.class).invoke(nametagGenerator, player);
-                    }
+                net.luckperms.api.LuckPerms luckPerms = net.luckperms.api.LuckPermsProvider.get();
+                net.luckperms.api.model.group.Group group = luckPerms.getGroupManager().getGroup(fakeRank.toLowerCase());
+                if (group != null) {
+                    fakePrefix = group.getCachedData().getMetaData(net.luckperms.api.query.QueryOptions.defaultContextualOptions()).getPrefix();
+                    if (fakePrefix == null) fakePrefix = "";
                 }
-            } catch (Exception ignored) {}
-        });
+            } catch (Exception e) {
+                // Ignore if LuckPerms is missing
+            }
+            
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix \"" + fakePrefix + "\"");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname \"" + fakePrefix + name + "\"");
+        } else {
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix remove");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname remove");
+        }
+        
+        // Force NametagGenerator to update the underlying scoreboard teams
+        org.bukkit.plugin.Plugin corePlugin = Bukkit.getPluginManager().getPlugin("BeaconLabsCore");
+        if (corePlugin != null) {
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                try {
+                    Object generator = corePlugin.getClass().getDeclaredField("nametagGenerator").get(corePlugin);
+                    if (generator != null) {
+                        generator.getClass().getMethod("updatePlayerNametag", Player.class).invoke(generator, player);
+                    }
+                } catch (Exception e) {
+                    // Ignore if missing
+                }
+            });
+        }
     }
 
     private void cleanupTeams(Player player) {
