@@ -179,7 +179,32 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                         showDialog(player, page + 1);
                     } else if (slot == 49 && event.getCurrentItem().getType() == Material.OAK_SIGN) {
                         player.closeInventory();
-                        player.sendMessage(MiniMessage.miniMessage().deserialize("<yellow>You can add a friend by typing <green>/friend add &lt;name&gt;</green></yellow>"));
+                        
+                        org.bukkit.Location loc = player.getLocation().clone();
+                        loc.setY(player.getWorld().getMaxHeight() - 1);
+                        org.bukkit.block.Block block = loc.getBlock();
+                        
+                        // We will store the original block in a cache if needed, but it's at max height so it's likely air
+                        block.setType(Material.OAK_SIGN, false);
+                        org.bukkit.block.Sign sign = (org.bukkit.block.Sign) block.getState();
+                        sign.line(0, Component.empty());
+                        sign.line(1, Component.text("^^^^^^^^^^", NamedTextColor.GRAY));
+                        sign.line(2, Component.text("Enter Friend", NamedTextColor.DARK_AQUA));
+                        sign.line(3, Component.text("Name Above", NamedTextColor.DARK_AQUA));
+                        sign.update(true, false);
+                        
+                        // Mark this sign as our custom Add Friend sign
+                        sign.getPersistentDataContainer().set(
+                            new org.bukkit.NamespacedKey(plugin, "add_friend_sign"),
+                            org.bukkit.persistence.PersistentDataType.BYTE,
+                            (byte) 1
+                        );
+                        sign.update();
+                        
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                            player.openSign(sign);
+                        }, 2L);
+                        
                     } else if (event.getCurrentItem().getType() == Material.PLAYER_HEAD) {
                         SkullMeta meta = (SkullMeta) event.getCurrentItem().getItemMeta();
                         if (meta != null && meta.getOwningPlayer() != null) {
@@ -221,6 +246,33 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                     }
                 }
             }
+        }
+    }
+
+    @EventHandler
+    public void onSignChange(org.bukkit.event.block.SignChangeEvent event) {
+        org.bukkit.block.Sign sign = (org.bukkit.block.Sign) event.getBlock().getState();
+        if (sign.getPersistentDataContainer().has(new org.bukkit.NamespacedKey(plugin, "add_friend_sign"), org.bukkit.persistence.PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            
+            // Clean up the block
+            event.getBlock().setType(Material.AIR);
+            
+            String friendName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.line(0)).trim();
+            if (friendName.isEmpty()) {
+                event.getPlayer().sendMessage(MiniMessage.miniMessage().deserialize("<red>You didn't enter a name.</red>"));
+                return;
+            }
+            
+            // Send proxy command to add friend
+            try {
+                java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                java.io.DataOutputStream out = new java.io.DataOutputStream(b);
+                out.writeUTF(event.getPlayer().getUniqueId().toString());
+                out.writeUTF("friend add " + friendName);
+                event.getPlayer().sendPluginMessage(plugin, "beaconlabs:proxy_command", b.toByteArray());
+                event.getPlayer().sendMessage(MiniMessage.miniMessage().deserialize("<green>Sent friend request to " + friendName + "!</green>"));
+            } catch (Exception e) {}
         }
     }
 

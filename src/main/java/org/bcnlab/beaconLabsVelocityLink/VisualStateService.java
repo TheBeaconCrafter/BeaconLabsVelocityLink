@@ -123,6 +123,29 @@ public final class VisualStateService implements PluginMessageListener, Listener
         applyVanishState(player, vanished);
     }
 
+    private String getLuckPermsPrefix(String fakeRank) {
+        if (!Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
+            return "";
+        }
+        try {
+            return getLuckPermsPrefixInternal(fakeRank);
+        } catch (Throwable t) {
+            return "";
+        }
+    }
+
+    private String getLuckPermsPrefixInternal(String fakeRank) {
+        try {
+            net.luckperms.api.LuckPerms luckPerms = net.luckperms.api.LuckPermsProvider.get();
+            net.luckperms.api.model.group.Group group = luckPerms.getGroupManager().getGroup(fakeRank.toLowerCase());
+            if (group != null) {
+                String prefix = group.getCachedData().getMetaData(net.luckperms.api.query.QueryOptions.defaultContextualOptions()).getPrefix();
+                return prefix == null ? "" : prefix;
+            }
+        } catch (Exception e) {}
+        return "";
+    }
+
     private void applyNameState(Player player, String nickname) {
         String name = (nickname == null || nickname.isBlank()) ? player.getName() : nickname;
         player.setDisplayName(name);
@@ -145,17 +168,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
             if (fakeRank == null || fakeRank.isBlank()) fakeRank = "default";
             
             // Get prefix from LuckPerms for the fake rank
-            String fakePrefix = "";
-            try {
-                net.luckperms.api.LuckPerms luckPerms = net.luckperms.api.LuckPermsProvider.get();
-                net.luckperms.api.model.group.Group group = luckPerms.getGroupManager().getGroup(fakeRank.toLowerCase());
-                if (group != null) {
-                    fakePrefix = group.getCachedData().getMetaData(net.luckperms.api.query.QueryOptions.defaultContextualOptions()).getPrefix();
-                    if (fakePrefix == null) fakePrefix = "";
-                }
-            } catch (Exception e) {
-                // Ignore if LuckPerms is missing
-            }
+            String fakePrefix = getLuckPermsPrefix(fakeRank);
             
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix \"" + fakePrefix + "\"");
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname \"" + fakePrefix + name + "\"");
