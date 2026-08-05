@@ -181,16 +181,18 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                         player.closeInventory();
                         
                         org.bukkit.Location loc = player.getLocation().clone();
-                        loc.setY(player.getWorld().getMaxHeight() - 1);
                         org.bukkit.block.Block block = loc.getBlock();
                         
-                        // We will store the original block in a cache if needed, but it's at max height so it's likely air
+                        // Store original state
+                        org.bukkit.block.data.BlockData oldData = block.getBlockData();
+                        
                         block.setType(Material.OAK_SIGN, false);
                         org.bukkit.block.Sign sign = (org.bukkit.block.Sign) block.getState();
                         sign.line(0, Component.empty());
                         sign.line(1, Component.text("^^^^^^^^^^", NamedTextColor.GRAY));
                         sign.line(2, Component.text("Enter Friend", NamedTextColor.DARK_AQUA));
                         sign.line(3, Component.text("Name Above", NamedTextColor.DARK_AQUA));
+                        sign.setWaxed(false);
                         sign.update(true, false);
                         
                         // Mark this sign as our custom Add Friend sign
@@ -204,6 +206,15 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                         Bukkit.getScheduler().runTaskLater(plugin, () -> {
                             player.openSign(sign);
                         }, 2L);
+                        
+                        // Fallback restore block after 30 seconds
+                        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                            if (block.getType() == Material.OAK_SIGN && block.getState() instanceof org.bukkit.block.Sign checkSign) {
+                                if (checkSign.getPersistentDataContainer().has(new org.bukkit.NamespacedKey(plugin, "add_friend_sign"), org.bukkit.persistence.PersistentDataType.BYTE)) {
+                                    block.setBlockData(oldData);
+                                }
+                            }
+                        }, 20L * 30L);
                         
                     } else if (event.getCurrentItem().getType() == Material.PLAYER_HEAD) {
                         SkullMeta meta = (SkullMeta) event.getCurrentItem().getItemMeta();

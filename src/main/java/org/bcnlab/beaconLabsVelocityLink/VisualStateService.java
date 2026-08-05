@@ -169,11 +169,16 @@ public final class VisualStateService implements PluginMessageListener, Listener
             
             // Get prefix from LuckPerms for the fake rank
             String fakePrefix = getLuckPermsPrefix(fakeRank);
-            
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix \"" + fakePrefix + "\"");
-            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname \"" + fakePrefix + name + "\"");
+            // Update TAB plugin formatting
+            // TAB requires setting customtabname/customtagname, removing quotes because they might be taken literally
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix " + fakePrefix);
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagprefix " + fakePrefix);
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtabname " + fakePrefix + name);
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname " + fakePrefix + name);
         } else {
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customprefix remove");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagprefix remove");
+            Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtabname remove");
             Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tab player " + player.getName() + " customtagname remove");
         }
         
