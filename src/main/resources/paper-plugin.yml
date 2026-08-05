@@ -1,0 +1,5 @@
+name: BeaconLabsVelocityLink
+version: '${version}'
+main: org.bcnlab.beaconLabsVelocityLink.BeaconLabsVelocityLink
+api-version: '1.21'
+
