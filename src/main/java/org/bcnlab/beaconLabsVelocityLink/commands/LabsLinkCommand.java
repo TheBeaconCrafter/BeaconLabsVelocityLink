@@ -17,9 +17,9 @@ public class LabsLinkCommand implements CommandExecutor {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        Component message = Component.text("BeaconLabsVelocityLink Version ", NamedTextColor.RED)
+        Component message = Component.text("BeaconLabsVelocityLink Version ", NamedTextColor.GRAY)
                 .append(Component.text(plugin.getDescription().getVersion(), NamedTextColor.GOLD))
-                .append(Component.text(" by ItsBeacon", NamedTextColor.RED));
+                .append(Component.text(" by ItsBeacon", NamedTextColor.GRAY));
                 
         sender.sendMessage(plugin.getPrefix().append(message));
         return true;

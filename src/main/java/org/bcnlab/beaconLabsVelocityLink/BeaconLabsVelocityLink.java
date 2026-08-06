@@ -6,6 +6,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import org.bukkit.command.CommandSender;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -22,9 +23,13 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
 
     private String prefixString;
     private Component prefix;
+    private String legacyPrefixString;
+    private Component legacyPrefix;
 
     private VisualStateService visualStateService;
     private FriendDialogService friendDialogService;
+    private InfoDialogService infoDialogService;
+    private ReportDialogService reportDialogService;
     private SettingsDialogService settingsDialogService;
 
     @Override
@@ -32,6 +37,8 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
     public void onEnable() {
         visualStateService = new VisualStateService(this);
         friendDialogService = new FriendDialogService(this);
+        infoDialogService = new InfoDialogService(this);
+        reportDialogService = new ReportDialogService(this);
         settingsDialogService = new SettingsDialogService(this);
 
         getServer().getPluginManager().registerEvents(visualStateService, this);
@@ -50,14 +57,33 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:friend_request");
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:proxy_command");
         
+        getServer().getMessenger().registerIncomingPluginChannel(this, InfoDialogService.CHANNEL, infoDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, ReportDialogService.CHANNEL, reportDialogService);
+        getServer().getMessenger().registerOutgoingPluginChannel(this, ReportDialogService.CHANNEL);
+        
         saveDefaultConfig();
         prefixString = getConfig().getString("prefix", "<gold>BeaconLabs</gold> <dark_gray>»</dark_gray> ");
         prefix = MiniMessage.miniMessage().deserialize(prefixString);
+        
+        legacyPrefixString = getConfig().getString("legacy-prefix", "&6BeaconLabs &8» &7");
+        legacyPrefix = net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer.legacyAmpersand().deserialize(legacyPrefixString);
 
         getLogger().info("BeaconLabsVelocityLink enabled.");
     }
 
     public Component getPrefix() {
+        return prefix;
+    }
+
+    public Component getPrefix(Player player) {
+        if (Bukkit.getPluginManager().isPluginEnabled("ViaVersion")) {
+            try {
+                int protocol = com.viaversion.viaversion.api.Via.getAPI().getPlayerVersion(player.getUniqueId());
+                if (protocol < 735) {
+                    return legacyPrefix;
+                }
+            } catch (Exception e) {}
+        }
         return prefix;
     }
 
@@ -88,18 +114,42 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
             nickname = args[0];
             if (args.length > 1) fakeRank = args[1];
         }
-        getLogger().info("[CMD] /nick player=" + player.getName() + " uuid=" + player.getUniqueId() + " nickname=" + nickname + " rank=" + fakeRank);
-        visualStateService.applyNick(player, nickname, fakeRank);
-        sendToProxy(player, "NICK", nickname, nickname);
+        
         if (nickname == null) {
-            player.sendMessage(prefix.append(Component.text("Nickname removed.", NamedTextColor.GREEN)));
+            visualStateService.applyNick(player, null, null);
+            sendToProxy(player, "NICK", null, null);
+            player.sendMessage(getPrefix(player).append(Component.text("Nickname removed.", NamedTextColor.GREEN)));
         } else {
-            if (fakeRank != null) {
-                player.sendMessage(prefix.append(Component.text("Nickname set to " + nickname + " with rank " + fakeRank, NamedTextColor.GREEN)));
-            } else {
-                player.sendMessage(prefix.append(Component.text("Nickname set to " + nickname, NamedTextColor.GREEN)));
-            }
+            player.sendMessage(getPrefix(player).append(Component.text("Requesting nickname...", NamedTextColor.GRAY)));
+            // Send NICK_REQUEST instead of NICK, pass fakeRank in skinSource field for now
+            sendToProxy(player, "NICK_REQUEST", nickname, fakeRank == null ? "" : fakeRank);
         }
+        return true;
+    }
+
+    public boolean handleNickRemove(Player player, String[] args) {
+        if (args.length > 0 && player.hasPermission("beaconlabs.admin.unnick")) {
+            Player target = Bukkit.getPlayer(args[0]);
+            if (target != null) {
+                visualStateService.applyNick(target, null, null);
+                sendToProxy(target, "NICK", null, null);
+                player.sendMessage(getPrefix(player).append(Component.text("Removed nickname for " + target.getName(), NamedTextColor.GREEN)));
+            } else {
+                player.sendMessage(getPrefix(player).append(Component.text("Player not found.", NamedTextColor.RED)));
+            }
+        } else {
+            visualStateService.applyNick(player, null, null);
+            sendToProxy(player, "NICK", null, null);
+            player.sendMessage(getPrefix(player).append(Component.text("Nickname removed.", NamedTextColor.GREEN)));
+        }
+        return true;
+    }
+
+    public boolean handleVanish(Player player, String[] args) {
+        getLogger().info("[CMD] /vanish player=" + player.getName() + " uuid=" + player.getUniqueId());
+        visualStateService.toggleVanish(player);
+        sendToProxy(player, "VANISH", "", "");
+        player.sendMessage(getPrefix(player).append(Component.text("Vanish toggled.", NamedTextColor.GREEN)));
         return true;
     }
 
@@ -114,14 +164,6 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
             data.writeUTF(player.getUniqueId().toString());
             player.sendPluginMessage(this, "beaconlabs:friend_request", out.toByteArray());
         } catch (Exception e) {}
-    }
-
-    public boolean handleVanish(Player player) {
-        getLogger().info("[CMD] /vanish player=" + player.getName() + " uuid=" + player.getUniqueId());
-        visualStateService.toggleVanish(player);
-        sendToProxy(player, "VANISH", "", "");
-        player.sendMessage(prefix.append(Component.text("Vanish toggled.", NamedTextColor.GREEN)));
-        return true;
     }
 
     private void sendToProxy(Player player, String action, String nickname, String skinSource) {

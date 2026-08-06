@@ -68,19 +68,73 @@ public final class VisualStateService implements PluginMessageListener, Listener
 
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
             String uuidStr = in.readUTF();
-            String nickname = in.readUTF();
-            String skinSource = in.readUTF();
-            boolean vanished = in.readBoolean();
-
+            
+            // We use the second field to differentiate between raw state updates and actions
+            String field2 = in.readUTF();
+            
             UUID uuid = UUID.fromString(uuidStr);
             Player target = Bukkit.getPlayer(uuid);
             if (target == null || !target.isOnline()) return;
 
+            if ("FORCE_UNNICK".equals(field2)) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    applyNick(target, null, null);
+                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was removed because a player with that name joined.", net.kyori.adventure.text.format.NamedTextColor.RED)));
+                });
+                return;
+            } else if ("FORCE_RENICK".equals(field2)) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    // Random re-nick
+                    String[] names = new String[]{"Alex", "Steve", "Herobrine", "Notch", "Technoblade", "Dream", "Xisuma", "Hypnotize", "AntVenom", "CaptainSparklez"};
+                    String newNick = names[java.util.concurrent.ThreadLocalRandom.current().nextInt(names.length)];
+                    applyNick(target, newNick, getFakeRank(target));
+                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was changed to " + newNick + " because the real owner joined.", net.kyori.adventure.text.format.NamedTextColor.YELLOW)));
+                    
+                    // Also notify proxy!
+                    try {
+                        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                        java.io.DataOutputStream data = new java.io.DataOutputStream(out);
+                        data.writeUTF(target.getUniqueId().toString());
+                        data.writeUTF("NICK");
+                        data.writeUTF(newNick);
+                        data.writeUTF(newNick);
+                        String rank = getFakeRank(target);
+                        data.writeUTF(rank != null ? rank : "");
+                        target.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
+                    } catch (Exception e) {}
+                });
+                return;
+            } else if ("NICK".equals(field2)) {
+                // Sent from proxy to apply nick state
+                String nickname = in.readUTF();
+                String skinSource = in.readUTF();
+                Bukkit.getScheduler().runTask(plugin, () -> applyState(target, nickname, skinSource, Boolean.TRUE.equals(vanishedPlayers.getOrDefault(target.getUniqueId(), false))));
+                return;
+            } else if ("NICK_ACCEPTED".equals(field2)) {
+                String nickname = in.readUTF();
+                String skinSource = in.readUTF();
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    applyNick(target, nickname, skinSource.isEmpty() ? null : skinSource);
+                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Nickname set to " + nickname, net.kyori.adventure.text.format.NamedTextColor.GREEN)));
+                });
+                return;
+            } else if ("NICK_DENIED".equals(field2)) {
+                String nickname = in.readUTF();
+                String skinSource = in.readUTF();
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("You cannot nick as a player that is already online.", net.kyori.adventure.text.format.NamedTextColor.RED)));
+                });
+                return;
+            }
+
+            // Legacy format or standard visual state broadcast
+            String nickname = field2;
+            String skinSource = in.readUTF();
+            boolean vanished = in.readBoolean();
+
             String effectiveNick = (nickname == null || nickname.isBlank()) ? null : nickname;
             String effectiveSkin = (skinSource == null || skinSource.isBlank()) ? null : skinSource;
 
-            // Notice: For cross-proxy nick sync, the payload would need to include the rank. 
-            // For now, if called via plugin message, rank isn't in payload, so it keeps current or clears.
             Bukkit.getScheduler().runTask(plugin, () ->
                 applyState(target, effectiveNick, effectiveSkin, vanished));
         } catch (Exception e) {
