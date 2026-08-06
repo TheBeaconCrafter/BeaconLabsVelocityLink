@@ -27,9 +27,11 @@ import java.util.Date;
 public class InfoDialogService implements PluginMessageListener, Listener {
     private final BeaconLabsVelocityLink plugin;
     public static final String CHANNEL = "beaconlabs:info_dialog";
+    private final org.bukkit.NamespacedKey ACTION_KEY;
 
     public InfoDialogService(BeaconLabsVelocityLink plugin) {
         this.plugin = plugin;
+        this.ACTION_KEY = new org.bukkit.NamespacedKey(plugin, "action");
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
     }
 
@@ -88,14 +90,14 @@ public class InfoDialogService implements PluginMessageListener, Listener {
     }
 
     private void openInfoGui(Player player, String targetUuidStr, String realName, boolean isNickname, String nickname, long playtimeMs, long lastSeenMs, boolean online, String proxy, String server, long ping, String client, long activeBans, long activeMutes) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text("Player Info: " + (isNickname ? nickname : realName)));
+        Inventory inv = Bukkit.createInventory(null, 36, Component.text("Player Info: " + (isNickname ? nickname : realName)));
 
         // Background
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
         bgMeta.displayName(Component.empty());
         bg.setItemMeta(bgMeta);
-        for (int i = 0; i < 27; i++) inv.setItem(i, bg);
+        for (int i = 0; i < 36; i++) inv.setItem(i, bg);
 
         // Player Head
         ItemStack head = new ItemStack(Material.PLAYER_HEAD);
@@ -146,14 +148,65 @@ public class InfoDialogService implements PluginMessageListener, Listener {
         compassMeta.lore(compassLore);
         compass.setItemMeta(compassMeta);
         inv.setItem(15, compass);
+        
+        // Actions
+        if (online && server != null && !server.equalsIgnoreCase("Unknown")) {
+            inv.setItem(29, createActionItem(Material.COMPASS, "Jump to Player", "ig_jump_" + server));
+        }
+        
+        inv.setItem(31, createActionItem(Material.ANVIL, "Punishment History", "ig_punishments_" + realName));
+        inv.setItem(33, createActionItem(Material.REDSTONE, "IPInfo", "ig_ipinfo_" + realName));
 
         player.openInventory(inv);
+    }
+    
+    private ItemStack createActionItem(Material mat, String name, String action) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name, NamedTextColor.GOLD, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        meta.getPersistentDataContainer().set(ACTION_KEY, org.bukkit.persistence.PersistentDataType.STRING, action);
+        item.setItemMeta(meta);
+        return item;
     }
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         if (event.getView().title().toString().contains("Player Info")) {
             event.setCancelled(true);
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || !clicked.hasItemMeta()) return;
+            
+            String action = clicked.getItemMeta().getPersistentDataContainer().get(ACTION_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+            if (action == null) return;
+            
+            Player player = (Player) event.getWhoClicked();
+            
+            if (action.startsWith("ig_jump_")) {
+                String server = action.substring("ig_jump_".length());
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                sendToProxyCommand(player, "server " + server);
+                player.closeInventory();
+            } else if (action.startsWith("ig_punishments_")) {
+                String target = action.substring("ig_punishments_".length());
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                sendToProxyCommand(player, "punishments " + target);
+                player.closeInventory();
+            } else if (action.startsWith("ig_ipinfo_")) {
+                String target = action.substring("ig_ipinfo_".length());
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                sendToProxyCommand(player, "ipinfo " + target);
+                player.closeInventory();
+            }
         }
+    }
+    
+    private void sendToProxyCommand(Player player, String command) {
+        try {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            java.io.DataOutputStream data = new java.io.DataOutputStream(out);
+            data.writeUTF(player.getUniqueId().toString());
+            data.writeUTF(command);
+            player.sendPluginMessage(plugin, "beaconlabs:proxy_command", out.toByteArray());
+        } catch (Exception e) {}
     }
 }

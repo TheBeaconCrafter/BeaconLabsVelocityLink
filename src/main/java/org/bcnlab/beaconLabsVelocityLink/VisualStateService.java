@@ -206,19 +206,20 @@ public final class VisualStateService implements PluginMessageListener, Listener
     }
 
     private void applyNameState(Player player, String nickname) {
-        String name = (nickname == null || nickname.isBlank()) ? player.getName() : nickname;
+        String originalName = getOriginalName(player);
+        String name = (nickname == null || nickname.isBlank()) ? originalName : nickname;
         player.setDisplayName(name);
         player.playerListName(net.kyori.adventure.text.Component.text(name));
         cleanupTeams(player);
-        player.customName(name.equals(player.getName()) ? null : net.kyori.adventure.text.Component.text(name));
-        player.setCustomNameVisible(!name.equals(player.getName()));
+        player.customName(name.equals(originalName) ? null : net.kyori.adventure.text.Component.text(name));
+        player.setCustomNameVisible(!name.equals(originalName));
 
         try {
             com.destroystokyo.paper.profile.PlayerProfile profile = player.getPlayerProfile();
             profile.setName(name);
             player.setPlayerProfile(profile);
         } catch (Exception e) {
-            log.warning("[VS] Failed to set profile name for " + player.getName());
+            log.warning("[VS] Failed to set profile name for " + originalName);
         }
         
         // Update TAB plugin formatting via API (with small delay to let profile changes propagate)
@@ -242,7 +243,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (!player.isOnline()) return;
                 try {
-                    Object generator = corePlugin.getClass().getDeclaredField("nametagGenerator").get(corePlugin);
+                    Object generator = corePlugin.getClass().getMethod("getNametagGenerator").invoke(corePlugin);
                     if (generator != null) {
                         generator.getClass().getMethod("updatePlayerNametag", Player.class).invoke(generator, player);
                     }

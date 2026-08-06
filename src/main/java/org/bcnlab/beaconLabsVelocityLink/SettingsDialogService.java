@@ -2,6 +2,7 @@ package org.bcnlab.beaconLabsVelocityLink;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -12,6 +13,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 
 import java.io.ByteArrayInputStream;
@@ -20,22 +22,29 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextDecoration;
 
 public class SettingsDialogService implements PluginMessageListener, Listener, CommandExecutor {
     public static final String CHANNEL = "beaconlabs:settings_dialog";
     private final BeaconLabsVelocityLink plugin;
-    private final net.kyori.adventure.text.Component title = net.kyori.adventure.text.Component.text("Settings").color(net.kyori.adventure.text.format.NamedTextColor.DARK_AQUA);
+    
+    private final NamespacedKey ACTION_KEY;
 
-    // Track current settings for open GUIs
     private final Map<UUID, String> msgPrivacyCache = new ConcurrentHashMap<>();
     private final Map<UUID, String> friendReqCache = new ConcurrentHashMap<>();
     private final Map<UUID, String> friendServerCache = new ConcurrentHashMap<>();
+    private final Map<UUID, String> friendsJoinAlertCache = new ConcurrentHashMap<>();
+    private final Map<UUID, String> joinSummaryCache = new ConcurrentHashMap<>();
 
     public SettingsDialogService(BeaconLabsVelocityLink plugin) {
         this.plugin = plugin;
+        this.ACTION_KEY = new NamespacedKey(plugin, "setting_action");
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
@@ -48,15 +57,20 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
             String msgPrivacy = in.readUTF();
             String friendRequests = in.readUTF();
             String friendServer = "everyone";
-            if (in.available() > 0) {
-                friendServer = in.readUTF();
-            }
+            if (in.available() > 0) friendServer = in.readUTF();
+            String friendsJoinAlert = "on";
+            if (in.available() > 0) friendsJoinAlert = in.readUTF();
+            String joinSummary = "off";
+            if (in.available() > 0) joinSummary = in.readUTF();
+            
             UUID uuid = UUID.fromString(uuidStr);
             if (player.getUniqueId().equals(uuid)) {
                 msgPrivacyCache.put(uuid, msgPrivacy);
                 friendReqCache.put(uuid, friendRequests);
                 friendServerCache.put(uuid, friendServer);
-                Bukkit.getScheduler().runTask(plugin, () -> openSettingsGUI(player));
+                friendsJoinAlertCache.put(uuid, friendsJoinAlert);
+                joinSummaryCache.put(uuid, joinSummary);
+                Bukkit.getScheduler().runTask(plugin, () -> openMainMenu(player));
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse settings dialog message: " + e.getMessage());
@@ -66,86 +80,97 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player player) {
-            // When run locally without args, it shouldn't really work since it lacks settings,
-            // but we can just open it with defaults or whatever is in cache.
-            openSettingsGUI(player);
+            openMainMenu(player);
         }
         return true;
     }
 
-    private void openSettingsGUI(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 27, title);
-        
+    private void fillBorder(Inventory inv) {
         ItemStack border = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta borderMeta = border.getItemMeta();
-        if (borderMeta != null) {
-            borderMeta.displayName(net.kyori.adventure.text.Component.text(" "));
-            border.setItemMeta(borderMeta);
-        }
-        for (int i = 0; i < 27; i++) {
-            if (i < 9 || i >= 18 || i % 9 == 0 || i % 9 == 8) {
-                gui.setItem(i, border);
+        ItemMeta meta = border.getItemMeta();
+        meta.displayName(Component.empty());
+        border.setItemMeta(meta);
+        int size = inv.getSize();
+        for (int i = 0; i < size; i++) {
+            if (i < 9 || i >= size - 9 || i % 9 == 0 || i % 9 == 8) {
+                inv.setItem(i, border);
             }
         }
+    }
+
+    private ItemStack createSettingItem(Material mat, String name, NamedTextColor color, String description, String currentValue, String action) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name, color).decoration(TextDecoration.ITALIC, false));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.text(description, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+        lore.add(Component.empty());
+        lore.add(Component.text("Currently: ", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)
+                .append(Component.text(formatValue(currentValue), NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, true)));
+        lore.add(Component.empty());
+        lore.add(Component.text("Click to toggle", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
+        meta.lore(lore);
+        meta.getPersistentDataContainer().set(ACTION_KEY, PersistentDataType.STRING, action);
+        item.setItemMeta(meta);
+        return item;
+    }
+    
+    private ItemStack createMenuNav(Material mat, String name, NamedTextColor color, String description, String action) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text(name, color, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+        if (description != null) {
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text(description, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+            meta.lore(lore);
+        }
+        meta.getPersistentDataContainer().set(ACTION_KEY, PersistentDataType.STRING, action);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private void openMainMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 27, Component.text("Settings"));
+        fillBorder(gui);
+        
+        gui.setItem(11, createMenuNav(Material.IRON_DOOR, "Privacy Settings", NamedTextColor.AQUA, "Manage messages, friend requests...", "menu_privacy"));
+        gui.setItem(15, createMenuNav(Material.BELL, "Alerts & Notifications", NamedTextColor.YELLOW, "Manage join alerts and summaries...", "menu_alerts"));
+        
+        player.openInventory(gui);
+    }
+
+    private void openPrivacyMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 36, Component.text("Settings > Privacy"));
+        fillBorder(gui);
         
         String msgPrivacy = msgPrivacyCache.getOrDefault(player.getUniqueId(), "everyone");
         String friendReq = friendReqCache.getOrDefault(player.getUniqueId(), "everyone");
         String friendServer = friendServerCache.getOrDefault(player.getUniqueId(), "everyone");
-
-        // Private Messages
-        ItemStack pmItem = new ItemStack(Material.PAPER);
-        ItemMeta pmMeta = pmItem.getItemMeta();
-        if (pmMeta != null) {
-            pmMeta.displayName(net.kyori.adventure.text.Component.text("Private Messages", net.kyori.adventure.text.format.NamedTextColor.AQUA).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            List<net.kyori.adventure.text.Component> lore = new ArrayList<>();
-            lore.add(net.kyori.adventure.text.Component.text("Toggle who can send you private messages.", net.kyori.adventure.text.format.NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            lore.add(net.kyori.adventure.text.Component.empty());
-            lore.add(net.kyori.adventure.text.Component.text("Currently: ", net.kyori.adventure.text.format.NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
-                    .append(net.kyori.adventure.text.Component.text(formatValue(msgPrivacy), net.kyori.adventure.text.format.NamedTextColor.GREEN).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, true)));
-            lore.add(net.kyori.adventure.text.Component.empty());
-            lore.add(net.kyori.adventure.text.Component.text("Click to toggle", net.kyori.adventure.text.format.NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            pmMeta.lore(lore);
-            pmItem.setItemMeta(pmMeta);
-        }
-        gui.setItem(11, pmItem);
         
-        // Friend Requests
-        ItemStack frItem = new ItemStack(Material.POPPY);
-        ItemMeta frMeta = frItem.getItemMeta();
-        if (frMeta != null) {
-            frMeta.displayName(net.kyori.adventure.text.Component.text("Friend Requests", net.kyori.adventure.text.format.NamedTextColor.RED).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            List<net.kyori.adventure.text.Component> lore = new ArrayList<>();
-            lore.add(net.kyori.adventure.text.Component.text("Toggle who can send you friend requests.", net.kyori.adventure.text.format.NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            lore.add(net.kyori.adventure.text.Component.empty());
-            lore.add(net.kyori.adventure.text.Component.text("Currently: ", net.kyori.adventure.text.format.NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
-                    .append(net.kyori.adventure.text.Component.text(formatValue(friendReq), net.kyori.adventure.text.format.NamedTextColor.GREEN).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, true)));
-            lore.add(net.kyori.adventure.text.Component.empty());
-            lore.add(net.kyori.adventure.text.Component.text("Click to toggle", net.kyori.adventure.text.format.NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            frMeta.lore(lore);
-            frItem.setItemMeta(frMeta);
-        }
-        gui.setItem(13, frItem);
-
-        // Server Privacy
-        ItemStack spItem = new ItemStack(Material.COMPASS);
-        ItemMeta spMeta = spItem.getItemMeta();
-        if (spMeta != null) {
-            spMeta.displayName(net.kyori.adventure.text.Component.text("Server Privacy", net.kyori.adventure.text.format.NamedTextColor.LIGHT_PURPLE).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            List<net.kyori.adventure.text.Component> lore = new ArrayList<>();
-            lore.add(net.kyori.adventure.text.Component.text("Toggle who can see what server you're on.", net.kyori.adventure.text.format.NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            lore.add(net.kyori.adventure.text.Component.empty());
-            lore.add(net.kyori.adventure.text.Component.text("Currently: ", net.kyori.adventure.text.format.NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false)
-                    .append(net.kyori.adventure.text.Component.text(formatValue(friendServer), net.kyori.adventure.text.format.NamedTextColor.GREEN).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, true)));
-            lore.add(net.kyori.adventure.text.Component.empty());
-            lore.add(net.kyori.adventure.text.Component.text("Click to toggle", net.kyori.adventure.text.format.NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            spMeta.lore(lore);
-            spItem.setItemMeta(spMeta);
-        }
-        gui.setItem(15, spItem);
+        gui.setItem(11, createSettingItem(Material.PAPER, "Private Messages", NamedTextColor.AQUA, "Toggle who can send you private messages.", msgPrivacy, "toggle_msg_privacy"));
+        gui.setItem(13, createSettingItem(Material.POPPY, "Friend Requests", NamedTextColor.RED, "Toggle who can send you friend requests.", friendReq, "toggle_friend_requests"));
+        gui.setItem(15, createSettingItem(Material.COMPASS, "Server Privacy", NamedTextColor.LIGHT_PURPLE, "Toggle who can see what server you're on.", friendServer, "toggle_friend_server"));
+        
+        gui.setItem(31, createMenuNav(Material.SPECTRAL_ARROW, "Back", NamedTextColor.GOLD, null, "menu_main"));
         
         player.openInventory(gui);
     }
     
+    private void openAlertsMenu(Player player) {
+        Inventory gui = Bukkit.createInventory(null, 36, Component.text("Settings > Alerts"));
+        fillBorder(gui);
+        
+        String joinAlert = friendsJoinAlertCache.getOrDefault(player.getUniqueId(), "on");
+        String joinSum = joinSummaryCache.getOrDefault(player.getUniqueId(), "off");
+        
+        gui.setItem(11, createSettingItem(Material.NOTE_BLOCK, "Friends Join Alert", NamedTextColor.GOLD, "See when friends join the server.", joinAlert, "toggle_friends_join_alert"));
+        gui.setItem(15, createSettingItem(Material.WRITABLE_BOOK, "Join Summary", NamedTextColor.AQUA, "Get a summary of online friends when you join.", joinSum, "toggle_join_summary"));
+        
+        gui.setItem(31, createMenuNav(Material.SPECTRAL_ARROW, "Back", NamedTextColor.GOLD, null, "menu_main"));
+        
+        player.openInventory(gui);
+    }
+
     private void sendUpdateToProxy(Player player, String key, String value) {
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -180,6 +205,13 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
             default -> "friends_only";
         };
     }
+    
+    private String cycleOnOff(String current) {
+        return switch (current.toLowerCase()) {
+            case "on", "true" -> "off";
+            default -> "on";
+        };
+    }
 
     private String formatValue(String value) {
         if (value == null) return "Unknown";
@@ -187,44 +219,64 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
             case "everyone" -> "everyone";
             case "friends_only" -> "friends only";
             case "nobody" -> "nobody";
+            case "on", "true" -> "on";
+            case "off", "false" -> "off";
             default -> value;
         };
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().title().equals(title)) {
+        String titleStr = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
+        if (titleStr.startsWith("Settings")) {
             event.setCancelled(true);
             
-            if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.GRAY_STAINED_GLASS_PANE && event.getCurrentItem().getType() != Material.AIR) {
-                if (event.getWhoClicked() instanceof Player player) {
-                    
-                    if (event.getRawSlot() == 11) {
-                        // PMs
-                        String current = msgPrivacyCache.getOrDefault(player.getUniqueId(), "everyone");
-                        String next = cycleMsgPrivacy(current);
-                        msgPrivacyCache.put(player.getUniqueId(), next);
-                        sendUpdateToProxy(player, "msg_privacy", next);
-                        player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                        openSettingsGUI(player); // refresh
-                    } else if (event.getRawSlot() == 13) {
-                        // Friend Requests
-                        String current = friendReqCache.getOrDefault(player.getUniqueId(), "everyone");
-                        String next = cycleFriendReq(current);
-                        friendReqCache.put(player.getUniqueId(), next);
-                        sendUpdateToProxy(player, "friend_requests", next);
-                        player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                        openSettingsGUI(player); // refresh
-                    } else if (event.getRawSlot() == 15) {
-                        // Server Privacy
-                        String current = friendServerCache.getOrDefault(player.getUniqueId(), "friends_only");
-                        String next = cycleServerPrivacy(current);
-                        friendServerCache.put(player.getUniqueId(), next);
-                        sendUpdateToProxy(player, "friend_server", next);
-                        player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
-                        openSettingsGUI(player); // refresh
-                    }
-                }
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked == null || !clicked.hasItemMeta()) return;
+            
+            String action = clicked.getItemMeta().getPersistentDataContainer().get(ACTION_KEY, PersistentDataType.STRING);
+            if (action == null) return;
+            
+            if (!(event.getWhoClicked() instanceof Player player)) return;
+            
+            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            
+            if (action.equals("menu_main")) {
+                openMainMenu(player);
+                return;
+            } else if (action.equals("menu_privacy")) {
+                openPrivacyMenu(player);
+                return;
+            } else if (action.equals("menu_alerts")) {
+                openAlertsMenu(player);
+                return;
+            }
+            
+            if (action.equals("toggle_msg_privacy")) {
+                String next = cycleMsgPrivacy(msgPrivacyCache.getOrDefault(player.getUniqueId(), "everyone"));
+                msgPrivacyCache.put(player.getUniqueId(), next);
+                sendUpdateToProxy(player, "msg_privacy", next);
+                openPrivacyMenu(player);
+            } else if (action.equals("toggle_friend_requests")) {
+                String next = cycleFriendReq(friendReqCache.getOrDefault(player.getUniqueId(), "everyone"));
+                friendReqCache.put(player.getUniqueId(), next);
+                sendUpdateToProxy(player, "friend_requests", next);
+                openPrivacyMenu(player);
+            } else if (action.equals("toggle_friend_server")) {
+                String next = cycleServerPrivacy(friendServerCache.getOrDefault(player.getUniqueId(), "friends_only"));
+                friendServerCache.put(player.getUniqueId(), next);
+                sendUpdateToProxy(player, "friend_server", next);
+                openPrivacyMenu(player);
+            } else if (action.equals("toggle_friends_join_alert")) {
+                String next = cycleOnOff(friendsJoinAlertCache.getOrDefault(player.getUniqueId(), "on"));
+                friendsJoinAlertCache.put(player.getUniqueId(), next);
+                sendUpdateToProxy(player, "friends_join_alert", next);
+                openAlertsMenu(player);
+            } else if (action.equals("toggle_join_summary")) {
+                String next = cycleOnOff(joinSummaryCache.getOrDefault(player.getUniqueId(), "off"));
+                joinSummaryCache.put(player.getUniqueId(), next);
+                sendUpdateToProxy(player, "join_summary", next);
+                openAlertsMenu(player);
             }
         }
     }
