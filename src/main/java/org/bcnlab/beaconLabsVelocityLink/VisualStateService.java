@@ -79,7 +79,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
             if ("FORCE_UNNICK".equals(field2)) {
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     applyNick(target, null, null);
-                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was removed because a player with that name joined.", net.kyori.adventure.text.format.NamedTextColor.RED)));
+                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was removed because a player with that name joined.", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
                 });
                 return;
             } else if ("FORCE_RENICK".equals(field2)) {
@@ -88,7 +88,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
                     String[] names = new String[]{"Alex", "Steve", "Herobrine", "Notch", "Technoblade", "Dream", "Xisuma", "Hypnotize", "AntVenom", "CaptainSparklez"};
                     String newNick = names[java.util.concurrent.ThreadLocalRandom.current().nextInt(names.length)];
                     applyNick(target, newNick, getFakeRank(target));
-                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was changed to " + newNick + " because the real owner joined.", net.kyori.adventure.text.format.NamedTextColor.YELLOW)));
+                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was changed to ", net.kyori.adventure.text.format.NamedTextColor.GRAY)).append(net.kyori.adventure.text.Component.text(newNick, net.kyori.adventure.text.format.NamedTextColor.GOLD)).append(net.kyori.adventure.text.Component.text(" because the real owner joined.", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
                     
                     // Also notify proxy!
                     try {
@@ -115,7 +115,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
                 String skinSource = in.readUTF();
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     applyNick(target, nickname, skinSource.isEmpty() ? null : skinSource);
-                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Nickname set to " + nickname, net.kyori.adventure.text.format.NamedTextColor.GREEN)));
+                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Nickname set to ", net.kyori.adventure.text.format.NamedTextColor.GRAY)).append(net.kyori.adventure.text.Component.text(nickname, net.kyori.adventure.text.format.NamedTextColor.GOLD)));
                 });
                 return;
             } else if ("NICK_DENIED".equals(field2)) {

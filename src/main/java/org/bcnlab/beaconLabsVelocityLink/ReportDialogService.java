@@ -60,22 +60,25 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
         if (!CHANNEL.equals(channel)) return;
 
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
-            String uuidStr = in.readUTF();
             String action = in.readUTF();
             
-            UUID uuid = UUID.fromString(uuidStr);
-            if (player.getUniqueId().equals(uuid)) {
-                if (action.equals("OPEN_CREATE")) {
-                    String target = in.readUTF();
-                    reportingTarget.put(uuid, target);
-                    Bukkit.getScheduler().runTask(plugin, () -> openReportCreateGui(player, target));
-                } else if (action.equals("OPEN_REPORTS")) {
-                    List<String> reports = new ArrayList<>();
-                    while (in.available() > 0) {
-                        reports.add(in.readUTF());
-                    }
-                    Bukkit.getScheduler().runTask(plugin, () -> openReportsGui(player, reports));
+            if (action.equals("OPEN_CREATE") || action.equals("REPORT")) {
+                String target = in.readUTF();
+                reportingTarget.put(player.getUniqueId(), target);
+                Bukkit.getScheduler().runTask(plugin, () -> openReportCreateGui(player, target));
+            } else if (action.equals("OPEN_REPORTS") || action.equals("REPORTS")) {
+                int size = in.readInt();
+                List<String> reports = new ArrayList<>();
+                for (int i = 0; i < size; i++) {
+                    int id = in.readInt();
+                    String reporter = in.readUTF();
+                    String reported = in.readUTF();
+                    String reason = in.readUTF();
+                    String status = in.readUTF();
+                    String server = in.readUTF();
+                    reports.add(id + ":" + reporter + ":" + reported + ":" + reason + ":" + status + ":" + server);
                 }
+                Bukkit.getScheduler().runTask(plugin, () -> openReportsGui(player, reports));
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse report dialog message: " + e.getMessage());

@@ -106,7 +106,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
         lore.add(Component.text(description, NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
         lore.add(Component.empty());
         lore.add(Component.text("Currently: ", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false)
-                .append(Component.text(formatValue(currentValue), NamedTextColor.GREEN).decoration(TextDecoration.ITALIC, true)));
+                .append(Component.text(formatValue(currentValue), getColorForValue(currentValue)).decoration(TextDecoration.ITALIC, false)));
         lore.add(Component.empty());
         lore.add(Component.text("Click to toggle", NamedTextColor.YELLOW).decoration(TextDecoration.ITALIC, false));
         meta.lore(lore);
@@ -210,6 +210,16 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
         return switch (current.toLowerCase()) {
             case "on", "true" -> "off";
             default -> "on";
+        };
+    }
+
+    private NamedTextColor getColorForValue(String value) {
+        if (value == null) return NamedTextColor.GRAY;
+        return switch (value.toLowerCase()) {
+            case "everyone", "on", "true" -> NamedTextColor.GREEN;
+            case "friends_only" -> NamedTextColor.GOLD;
+            case "nobody", "off", "false" -> NamedTextColor.RED;
+            default -> NamedTextColor.WHITE;
         };
     }
 

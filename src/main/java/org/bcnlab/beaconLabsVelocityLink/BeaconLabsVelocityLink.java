@@ -118,7 +118,7 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         if (nickname == null) {
             visualStateService.applyNick(player, null, null);
             sendToProxy(player, "NICK", null, null);
-            player.sendMessage(getPrefix(player).append(Component.text("Nickname removed.", NamedTextColor.GREEN)));
+            player.sendMessage(getPrefix(player).append(Component.text("Nickname removed.", NamedTextColor.GRAY)));
         } else {
             player.sendMessage(getPrefix(player).append(Component.text("Requesting nickname...", NamedTextColor.GRAY)));
             // Send NICK_REQUEST instead of NICK, pass fakeRank in skinSource field for now
@@ -133,14 +133,14 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
             if (target != null) {
                 visualStateService.applyNick(target, null, null);
                 sendToProxy(target, "NICK", null, null);
-                player.sendMessage(getPrefix(player).append(Component.text("Removed nickname for " + target.getName(), NamedTextColor.GREEN)));
+                player.sendMessage(getPrefix(player).append(Component.text("Removed nickname for ", NamedTextColor.GRAY)).append(Component.text(target.getName(), NamedTextColor.GOLD)));
             } else {
                 player.sendMessage(getPrefix(player).append(Component.text("Player not found.", NamedTextColor.RED)));
             }
         } else {
             visualStateService.applyNick(player, null, null);
             sendToProxy(player, "NICK", null, null);
-            player.sendMessage(getPrefix(player).append(Component.text("Nickname removed.", NamedTextColor.GREEN)));
+            player.sendMessage(getPrefix(player).append(Component.text("Nickname removed.", NamedTextColor.GRAY)));
         }
         return true;
     }
