@@ -65,13 +65,25 @@ public class InfoDialogService implements PluginMessageListener, Listener {
             
             long activeBans = in.readLong();
             long activeMutes = in.readLong();
+            
+            boolean hasIpInfo = false;
+            boolean hasHistory = false;
+            boolean hasGoto = false;
+            if (in.available() > 0) {
+                hasIpInfo = in.readBoolean();
+                hasHistory = in.readBoolean();
+                hasGoto = in.readBoolean();
+            }
 
             String finalProxy = proxy;
             String finalServer = server;
             long finalPing = ping;
             String finalClient = client;
+            boolean fHasIpInfo = hasIpInfo;
+            boolean fHasHistory = hasHistory;
+            boolean fHasGoto = hasGoto;
             
-            Bukkit.getScheduler().runTask(plugin, () -> openInfoGui(player, targetUuidStr, realName, isNickname, nickname, playtimeMs, lastSeenMs, online, finalProxy, finalServer, finalPing, finalClient, activeBans, activeMutes));
+            Bukkit.getScheduler().runTask(plugin, () -> openInfoGui(player, targetUuidStr, realName, isNickname, nickname, playtimeMs, lastSeenMs, online, finalProxy, finalServer, finalPing, finalClient, activeBans, activeMutes, fHasIpInfo, fHasHistory, fHasGoto));
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse info dialog: " + e.getMessage());
         }
@@ -89,7 +101,7 @@ public class InfoDialogService implements PluginMessageListener, Listener {
         return seconds + "s";
     }
 
-    private void openInfoGui(Player player, String targetUuidStr, String realName, boolean isNickname, String nickname, long playtimeMs, long lastSeenMs, boolean online, String proxy, String server, long ping, String client, long activeBans, long activeMutes) {
+    private void openInfoGui(Player player, String targetUuidStr, String realName, boolean isNickname, String nickname, long playtimeMs, long lastSeenMs, boolean online, String proxy, String server, long ping, String client, long activeBans, long activeMutes, boolean hasIpInfo, boolean hasHistory, boolean hasGoto) {
         Inventory inv = Bukkit.createInventory(null, 36, Component.text("Player Info: " + (isNickname ? nickname : realName)));
 
         // Background
@@ -150,12 +162,16 @@ public class InfoDialogService implements PluginMessageListener, Listener {
         inv.setItem(15, compass);
         
         // Actions
-        if (online && server != null && !server.equalsIgnoreCase("Unknown")) {
+        if (hasGoto && online && server != null && !server.equalsIgnoreCase("Unknown")) {
             inv.setItem(29, createActionItem(Material.COMPASS, "Jump to Player", "ig_jump_" + server));
         }
         
-        inv.setItem(31, createActionItem(Material.ANVIL, "Punishment History", "ig_punishments_" + realName));
-        inv.setItem(33, createActionItem(Material.REDSTONE, "IPInfo", "ig_ipinfo_" + realName));
+        if (hasHistory) {
+            inv.setItem(31, createActionItem(Material.ANVIL, "Punishment History", "ig_punishments_" + realName));
+        }
+        if (hasIpInfo) {
+            inv.setItem(33, createActionItem(Material.REDSTONE, "IPInfo", "ig_ipinfo_" + realName));
+        }
 
         player.openInventory(inv);
     }

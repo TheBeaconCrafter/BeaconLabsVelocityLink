@@ -93,7 +93,8 @@ public class FriendDialogService implements PluginMessageListener, Listener {
             ItemStack item = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) item.getItemMeta();
             if (meta != null) {
-                meta.setOwningPlayer(Bukkit.getOfflinePlayer(fd.uuid));
+                org.bukkit.profile.PlayerProfile profile = Bukkit.createProfile(fd.uuid, fd.name);
+                meta.setOwnerProfile(profile);
                 meta.displayName(Component.text(fd.name, 
                     fd.isOnline ? NamedTextColor.GREEN : NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
                 
@@ -218,8 +219,8 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                         
                     } else if (event.getCurrentItem().getType() == Material.PLAYER_HEAD) {
                         SkullMeta meta = (SkullMeta) event.getCurrentItem().getItemMeta();
-                        if (meta != null && meta.getOwningPlayer() != null) {
-                            String name = meta.getOwningPlayer().getName();
+                        if (meta != null && meta.getOwnerProfile() != null) {
+                            String name = meta.getOwnerProfile().getName();
                             if (name == null) name = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(meta.displayName());
                             
                             if (event.isLeftClick()) {
@@ -227,7 +228,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                                 List<FriendData> friends = playerFriendsCache.getOrDefault(player.getUniqueId(), new ArrayList<>());
                                 String targetServer = null;
                                 for (FriendData fd : friends) {
-                                    if (fd.uuid.equals(meta.getOwningPlayer().getUniqueId())) {
+                                    if (fd.uuid.equals(meta.getOwnerProfile().getUniqueId())) {
                                         targetServer = fd.server;
                                         break;
                                     }
@@ -236,9 +237,9 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                                     try {
                                         java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
                                         java.io.DataOutputStream out = new java.io.DataOutputStream(b);
-                                        out.writeUTF("Connect");
-                                        out.writeUTF(targetServer);
-                                        player.sendPluginMessage(plugin, "BungeeCord", b.toByteArray());
+                                        out.writeUTF(player.getUniqueId().toString());
+                                        out.writeUTF("friend jump " + name);
+                                        player.sendPluginMessage(plugin, "beaconlabs:proxy_command", b.toByteArray());
                                     } catch (Exception e) {}
                                 } else {
                                     player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Could not connect to this friend's server.</red>"));

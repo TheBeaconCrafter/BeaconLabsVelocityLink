@@ -145,7 +145,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
         
         String msgPrivacy = msgPrivacyCache.getOrDefault(player.getUniqueId(), "everyone");
         String friendReq = friendReqCache.getOrDefault(player.getUniqueId(), "everyone");
-        String friendServer = friendServerCache.getOrDefault(player.getUniqueId(), "everyone");
+        String friendServer = friendServerCache.getOrDefault(player.getUniqueId(), "friends_only");
         
         gui.setItem(11, createSettingItem(Material.PAPER, "Private Messages", NamedTextColor.AQUA, "Toggle who can send you private messages.", msgPrivacy, "toggle_msg_privacy"));
         gui.setItem(13, createSettingItem(Material.POPPY, "Friend Requests", NamedTextColor.RED, "Toggle who can send you friend requests.", friendReq, "toggle_friend_requests"));

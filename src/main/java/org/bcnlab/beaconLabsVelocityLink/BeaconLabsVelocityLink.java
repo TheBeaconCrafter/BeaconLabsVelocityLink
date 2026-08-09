@@ -40,6 +40,9 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         infoDialogService = new InfoDialogService(this);
         reportDialogService = new ReportDialogService(this);
         settingsDialogService = new SettingsDialogService(this);
+        
+        IpInfoDialogService ipInfoDialogService = new IpInfoDialogService(this);
+        PunishmentsDialogService punishmentsDialogService = new PunishmentsDialogService(this);
 
         getServer().getPluginManager().registerEvents(visualStateService, this);
         
@@ -48,6 +51,8 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         
         getServer().getMessenger().registerIncomingPluginChannel(this, FriendDialogService.CHANNEL, friendDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, SettingsDialogService.CHANNEL, settingsDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, IpInfoDialogService.CHANNEL, ipInfoDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, PunishmentsDialogService.CHANNEL, punishmentsDialogService);
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:settings_update");
         
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {

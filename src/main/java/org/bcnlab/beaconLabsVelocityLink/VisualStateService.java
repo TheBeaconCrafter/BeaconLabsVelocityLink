@@ -104,6 +104,11 @@ public final class VisualStateService implements PluginMessageListener, Listener
                     } catch (Exception e) {}
                 });
                 return;
+            } else if ("UNNICK".equals(field2)) {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    applyNick(target, null, null);
+                });
+                return;
             } else if ("NICK".equals(field2)) {
                 // Sent from proxy to apply nick state
                 String nickname = in.readUTF();
