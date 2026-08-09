@@ -153,14 +153,14 @@ public final class VisualStateService implements PluginMessageListener, Listener
                 String skinSource = in.readUTF();
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     applyNick(target, nickname, skinSource.isEmpty() ? null : skinSource);
-                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Nickname set to ", net.kyori.adventure.text.format.NamedTextColor.GRAY)).append(net.kyori.adventure.text.Component.text(nickname, net.kyori.adventure.text.format.NamedTextColor.GOLD)));
+                    target.sendMessage(plugin.getPrefix(target).append(net.kyori.adventure.text.Component.text("Nickname set to ", net.kyori.adventure.text.format.NamedTextColor.GRAY)).append(net.kyori.adventure.text.Component.text(nickname, net.kyori.adventure.text.format.NamedTextColor.GOLD)));
                 });
                 return;
             } else if ("NICK_DENIED".equals(field2)) {
                 String nickname = in.readUTF();
                 String skinSource = in.readUTF();
                 Bukkit.getScheduler().runTask(plugin, () -> {
-                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("You cannot nick as a player that is already online.", net.kyori.adventure.text.format.NamedTextColor.RED)));
+                    target.sendMessage(plugin.getPrefix(target).append(net.kyori.adventure.text.Component.text("You cannot nick as a player that is already online.", net.kyori.adventure.text.format.NamedTextColor.RED)));
                 });
                 return;
             }
@@ -196,9 +196,10 @@ public final class VisualStateService implements PluginMessageListener, Listener
         applySkinState(player, nickname, nickname);
     }
 
-    public void toggleVanish(Player player) {
+    public boolean toggleVanish(Player player) {
         boolean current = Boolean.TRUE.equals(vanishedPlayers.getOrDefault(player.getUniqueId(), false));
         applyVanishState(player, !current);
+        return !current;
     }
 
     public String getOriginalName(Player player) {
@@ -259,9 +260,11 @@ public final class VisualStateService implements PluginMessageListener, Listener
         player.setCustomNameVisible(!name.equals(originalName));
 
         try {
-            com.destroystokyo.paper.profile.PlayerProfile profile = player.getPlayerProfile();
-            profile.setName(name);
-            player.setPlayerProfile(profile);
+            if (plugin.getProtocolVersion(player.getUniqueId()) > 47) {
+                com.destroystokyo.paper.profile.PlayerProfile profile = player.getPlayerProfile();
+                profile.setName(name);
+                player.setPlayerProfile(profile);
+            }
         } catch (Exception e) {
             log.warning("[VS] Failed to set profile name for " + originalName);
         }

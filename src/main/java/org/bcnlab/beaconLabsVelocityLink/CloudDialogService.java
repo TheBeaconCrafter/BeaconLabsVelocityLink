@@ -28,6 +28,9 @@ public class CloudDialogService implements PluginMessageListener, Listener {
     private final BeaconLabsVelocityLink plugin;
 
     public static final String SUBMENU_CHANNEL = "beaconlabs:cloud_gui_submenu";
+    public static final String ADD_CHANNEL = "beaconlabs:cloud_server_add";
+    private static final org.bukkit.NamespacedKey SERVER_ID_KEY = new org.bukkit.NamespacedKey("beaconlabs", "server_id");
+    private final java.util.Map<java.util.UUID, java.util.List<ItemStack>> cachedServers = new java.util.concurrent.ConcurrentHashMap<>();
 
     public CloudDialogService(BeaconLabsVelocityLink plugin) {
         this.plugin = plugin;
@@ -49,82 +52,58 @@ public class CloudDialogService implements PluginMessageListener, Listener {
                 }
             }
             
-            ItemStack loading = new ItemStack(Material.CLOCK);
-            ItemMeta loadingMeta = loading.getItemMeta();
-            loadingMeta.displayName(Component.text("Loading servers...", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            loading.setItemMeta(loadingMeta);
-            inv.setItem(22, loading);
+
             
             Bukkit.getScheduler().runTask(plugin, () -> player.openInventory(inv));
-        } else if (channel.equals(CHANNEL)) {
+        } else if (channel.equals(ADD_CHANNEL)) {
             try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
-                int count = in.readInt();
+                String id = in.readUTF();
+                String name = in.readUTF();
+                boolean running = in.readBoolean();
+                boolean installing = in.readBoolean();
+                
+                ItemStack item = new ItemStack(Material.COMMAND_BLOCK);
+                if (installing) {
+                    item.setType(Material.GOLD_BLOCK);
+                } else if (running) {
+                    item.setType(Material.EMERALD_BLOCK);
+                } else {
+                    item.setType(Material.REDSTONE_BLOCK);
+                }
+                
+                ItemMeta meta = item.getItemMeta();
+                meta.displayName(Component.text(name, NamedTextColor.AQUA, net.kyori.adventure.text.format.TextDecoration.BOLD).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                List<Component> lore = new ArrayList<>();
+                lore.add(Component.text("ID: " + id, NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                if (installing) {
+                    lore.add(Component.text("Status: Installing", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                } else if (running) {
+                    lore.add(Component.text("Status: Online", NamedTextColor.GREEN).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                } else {
+                    lore.add(Component.text("Status: Offline", NamedTextColor.RED).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                }
+                lore.add(Component.empty());
+                lore.add(Component.text("Click to manage", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                meta.lore(lore);
+                meta.getPersistentDataContainer().set(SERVER_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING, id);
+                item.setItemMeta(meta);
+                
+                cachedServers.computeIfAbsent(player.getUniqueId(), k -> new java.util.ArrayList<>()).add(item);
                 
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     Inventory inv = player.getOpenInventory().getTopInventory();
                     boolean isOpen = inv != null && player.getOpenInventory().title() instanceof net.kyori.adventure.text.TextComponent && ((net.kyori.adventure.text.TextComponent) player.getOpenInventory().title()).content().equals("Cloud Servers");
-                    
-                    if (!isOpen) {
-                        inv = Bukkit.createInventory(null, 54, Component.text("Cloud Servers").decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-                    }
-                    
-                    // Add glass panes
-                    ItemStack glass = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-                    ItemMeta glassMeta = glass.getItemMeta();
-                    glassMeta.displayName(Component.text(" "));
-                    glass.setItemMeta(glassMeta);
-                    for (int i = 0; i < 54; i++) {
-                        if (i < 9 || i > 44 || i % 9 == 0 || i % 9 == 8) {
-                            inv.setItem(i, glass);
-                        } else {
-                            inv.setItem(i, null);
+                    if (isOpen) {
+                        for (int i = 0; i < 54; i++) {
+                            if (i < 9 || i > 44 || i % 9 == 0 || i % 9 == 8) continue;
+                            if (inv.getItem(i) == null || inv.getItem(i).getType() == Material.AIR) {
+                                inv.setItem(i, item);
+                                break;
+                            }
                         }
                     }
-                    
-                    int[] slots = {10, 11, 12, 13, 14, 15, 16, 19, 20, 21, 22, 23, 24, 25, 28, 29, 30, 31, 32, 33, 34, 37, 38, 39, 40, 41, 42, 43};
-                    int currentSlot = 0;
-                    
-                    for (int i = 0; i < count; i++) {
-                        try {
-                            String id = in.readUTF();
-                            String name = in.readUTF();
-                            boolean running = in.readBoolean();
-                            boolean installing = in.readBoolean();
-                            
-                            ItemStack item = new ItemStack(Material.COMMAND_BLOCK);
-                            ItemMeta meta = item.getItemMeta();
-                            meta.displayName(Component.text(name, NamedTextColor.AQUA).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-                            
-                            List<Component> lore = new ArrayList<>();
-                            lore.add(Component.text("ID: " + id, NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-                            
-                            if (installing) {
-                                lore.add(Component.text("Status: Installing", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-                            } else if (running) {
-                                lore.add(Component.text("Status: Online", NamedTextColor.GREEN).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-                            } else {
-                                lore.add(Component.text("Status: Offline", NamedTextColor.RED).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-                            }
-                            
-                            lore.add(Component.empty());
-                            lore.add(Component.text("Click to View", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-                            
-                            meta.lore(lore);
-                            item.setItemMeta(meta);
-                            
-                            if (currentSlot < slots.length) {
-                                inv.setItem(slots[currentSlot++], item);
-                            }
-                        } catch (Exception ex) {}
-                    }
-                    
-                    if (!isOpen) {
-                        player.openInventory(inv);
-                    }
                 });
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            } catch (Exception e) {}
         } else if (channel.equals(SUBMENU_CHANNEL)) {
             try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
                 String id = in.readUTF();

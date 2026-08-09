@@ -1,4 +1,5 @@
 package org.bcnlab.beaconLabsVelocityLink;
+import org.bcnlab.beaconLabsVelocityLink.SoundUtil;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -252,13 +253,13 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
             if (action == null) return;
             
             if (action.equals("report_cancel") || action.equals("report_close")) {
-                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 player.closeInventory();
                 return;
             }
             
             if (action.equals("report_back_to_list")) {
-                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 sendToProxyCommand(player, "reports");
                 player.closeInventory();
                 return;
@@ -275,18 +276,18 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
                 
                 String target = reportingTarget.get(player.getUniqueId());
                 if (target != null) {
-                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+                    SoundUtil.playSound(player, org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
                     // Send command to Velocity
                     sendToProxyCommand(player, "report " + target + " " + reason);
                 } else {
-                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                    SoundUtil.playSound(player, org.bukkit.Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                 }
                 player.closeInventory();
                 return;
             }
 
             if (action.startsWith("view_report_")) {
-                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 if (action.equals("view_report_back")) {
                     ReportData data = viewingReport.get(player.getUniqueId());
                     if (data != null) {
@@ -318,7 +319,7 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
                 if (statusStr.startsWith("RESOLVED_")) {
                     statusStr = statusStr.replaceFirst("_", " ");
                 }
-                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
                 sendToProxyCommand(player, "reports status " + id + " " + statusStr);
                 player.closeInventory();
                 return;
@@ -326,7 +327,7 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
             if (action.equals("report_resolve_menu")) {
                 ReportData data = viewingReport.get(player.getUniqueId());
                 if (data != null) {
-                    player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                     openReportResolveGui(player, data);
                 }
                 return;
@@ -334,21 +335,21 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
             if (action.equals("report_reject_menu")) {
                 ReportData data = viewingReport.get(player.getUniqueId());
                 if (data != null) {
-                    player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                    SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                     openReportRejectGui(player, data);
                 }
                 return;
             }
             if (action.startsWith("report_jump_")) {
                 String server = action.substring("report_jump_".length());
-                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 sendToProxyCommand(player, "server " + server);
                 player.closeInventory();
                 return;
             }
             if (action.startsWith("report_chatreport_")) {
                 String reported = action.substring("report_chatreport_".length());
-                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 sendToProxyCommand(player, "chatreport " + reported);
                 player.closeInventory();
                 return;

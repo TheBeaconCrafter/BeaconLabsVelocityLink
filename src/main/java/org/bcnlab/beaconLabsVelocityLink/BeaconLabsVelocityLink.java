@@ -14,6 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -31,7 +32,8 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
     private InfoDialogService infoDialogService;
     private ReportDialogService reportDialogService;
     private SettingsDialogService settingsDialogService;
-
+    private ProtocolSyncService protocolSyncService;
+    private GotoTeleportService gotoTeleportService;
     @Override
     @SuppressWarnings("UnstableApiUsage")
     public void onEnable() {
@@ -44,8 +46,11 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         IpInfoDialogService ipInfoDialogService = new IpInfoDialogService(this);
         PunishmentsDialogService punishmentsDialogService = new PunishmentsDialogService(this);
         CloudDialogService cloudDialogService = new CloudDialogService(this);
+        protocolSyncService = new ProtocolSyncService(this);
+        gotoTeleportService = new GotoTeleportService(this);
 
         getServer().getPluginManager().registerEvents(visualStateService, this);
+        getServer().getPluginManager().registerEvents(gotoTeleportService, this);
         
         getServer().getMessenger().registerIncomingPluginChannel(this, VisualStateService.CHANNEL, visualStateService);
         getServer().getMessenger().registerOutgoingPluginChannel(this, VisualStateService.CHANNEL);
@@ -57,7 +62,10 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         getServer().getMessenger().registerIncomingPluginChannel(this, PunishmentsDialogService.CHANNEL, punishmentsDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.CHANNEL, cloudDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.OPEN_CHANNEL, cloudDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.ADD_CHANNEL, cloudDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.SUBMENU_CHANNEL, cloudDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, ProtocolSyncService.CHANNEL, protocolSyncService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, GotoTeleportService.CHANNEL, gotoTeleportService);
         
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:settings_update");
         getServer().getMessenger().registerOutgoingPluginChannel(this, CloudDialogService.ACTION_CHANNEL);
@@ -99,18 +107,26 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         getLogger().info("BeaconLabsVelocityLink enabled.");
     }
 
+    public int getProtocolVersion(UUID uuid) {
+        return protocolSyncService.getProtocolVersion(uuid);
+    }
+
     public Component getPrefix() {
         return prefix;
     }
 
     public Component getPrefix(Player player) {
+        int protocol = 765;
         if (Bukkit.getPluginManager().isPluginEnabled("ViaVersion")) {
             try {
-                int protocol = com.viaversion.viaversion.api.Via.getAPI().getPlayerVersion(player.getUniqueId());
-                if (protocol < 735) {
-                    return legacyPrefix;
-                }
+                protocol = com.viaversion.viaversion.api.Via.getAPI().getPlayerVersion(player.getUniqueId());
             } catch (Exception e) {}
+        } else {
+            protocol = getProtocolVersion(player.getUniqueId());
+        }
+        
+        if (protocol < 735) {
+            return legacyPrefix;
         }
         return prefix;
     }
@@ -174,10 +190,13 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
     }
 
     public boolean handleVanish(Player player, String[] args) {
-        getLogger().info("[CMD] /vanish player=" + player.getName() + " uuid=" + player.getUniqueId());
-        visualStateService.toggleVanish(player);
+        getLogger().info("[CMD] /pvanish player=" + player.getName() + " uuid=" + player.getUniqueId());
+        boolean isVanished = visualStateService.toggleVanish(player);
         sendToProxy(player, "VANISH", "", "");
-        player.sendMessage(getPrefix(player).append(Component.text("Vanish toggled.", NamedTextColor.GREEN)));
+        
+        Component message = Component.text("Vanish ", NamedTextColor.GRAY)
+            .append(Component.text(isVanished ? "on" : "off", isVanished ? NamedTextColor.GREEN : NamedTextColor.RED));
+        player.sendMessage(getPrefix(player).append(message));
         return true;
     }
 

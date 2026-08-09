@@ -1,4 +1,5 @@
 package org.bcnlab.beaconLabsVelocityLink;
+import org.bcnlab.beaconLabsVelocityLink.SoundUtil;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -91,11 +92,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
             Inventory inv = Bukkit.createInventory(null, 54, Component.text("Settings").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
             fillBorder(inv);
             
-            ItemStack loading = new ItemStack(Material.CLOCK);
-            ItemMeta loadingMeta = loading.getItemMeta();
-            loadingMeta.displayName(Component.text("Loading settings...", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            loading.setItemMeta(loadingMeta);
-            inv.setItem(22, loading);
+
             
             player.openInventory(inv);
 
@@ -274,7 +271,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
             
             if (!(event.getWhoClicked() instanceof Player player)) return;
             
-            player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+            SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
             
             if (action.equals("menu_main")) {
                 openMainMenu(player, event.getInventory());

@@ -1,4 +1,5 @@
 package org.bcnlab.beaconLabsVelocityLink;
+import org.bcnlab.beaconLabsVelocityLink.SoundUtil;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -102,7 +103,7 @@ public class InfoDialogService implements PluginMessageListener, Listener {
     }
 
     private void openInfoGui(Player player, String targetUuidStr, String realName, boolean isNickname, String nickname, long playtimeMs, long lastSeenMs, boolean online, String proxy, String server, long ping, String client, long activeBans, long activeMutes, boolean hasIpInfo, boolean hasHistory, boolean hasGoto) {
-        Inventory inv = Bukkit.createInventory(null, 36, Component.text("Player Info: " + (isNickname ? nickname : realName)));
+        Inventory inv = Bukkit.createInventory(null, 36, Component.text("Player Info: " + realName));
 
         // Background
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
@@ -118,10 +119,11 @@ public class InfoDialogService implements PluginMessageListener, Listener {
         headMeta.displayName(Component.text(realName, NamedTextColor.GOLD, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        lore.add(Component.text("UUID: ", NamedTextColor.GRAY).append(Component.text(targetUuidStr, NamedTextColor.YELLOW)).decoration(TextDecoration.ITALIC, false));
-        if (isNickname) {
-            lore.add(Component.text("Playing as Nickname: ", NamedTextColor.GRAY).append(Component.text(nickname, NamedTextColor.RED)).decoration(TextDecoration.ITALIC, false));
+        if (isNickname && nickname != null && !nickname.isBlank()) {
+            lore.add(Component.text("Currently nicked as: ", NamedTextColor.GRAY).append(Component.text(nickname, NamedTextColor.GOLD)).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.empty());
         }
+        lore.add(Component.text("UUID: ", NamedTextColor.GRAY).append(Component.text(targetUuidStr, NamedTextColor.YELLOW)).decoration(TextDecoration.ITALIC, false));
         headMeta.lore(lore);
         head.setItemMeta(headMeta);
         inv.setItem(11, head);
@@ -199,17 +201,17 @@ public class InfoDialogService implements PluginMessageListener, Listener {
             
             if (action.startsWith("ig_jump_")) {
                 String server = action.substring("ig_jump_".length());
-                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 1.0f, 1.0f);
                 sendToProxyCommand(player, "server " + server);
                 player.closeInventory();
             } else if (action.startsWith("ig_punishments_")) {
                 String target = action.substring("ig_punishments_".length());
-                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 sendToProxyCommand(player, "punishments " + target);
                 player.closeInventory();
             } else if (action.startsWith("ig_ipinfo_")) {
                 String target = action.substring("ig_ipinfo_".length());
-                player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
+                SoundUtil.playSound(player, org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
                 sendToProxyCommand(player, "ipinfo " + target);
                 player.closeInventory();
             }

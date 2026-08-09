@@ -53,11 +53,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                 }
             }
             
-            ItemStack loading = new ItemStack(Material.CLOCK);
-            ItemMeta loadingMeta = loading.getItemMeta();
-            loadingMeta.displayName(Component.text("Loading friends...", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
-            loading.setItemMeta(loadingMeta);
-            inv.setItem(22, loading);
+
             
             Bukkit.getScheduler().runTask(plugin, () -> player.openInventory(inv));
             return;

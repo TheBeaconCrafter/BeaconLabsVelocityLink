@@ -20,7 +20,7 @@ public class CommandRegistry {
     public static void registerAll(BeaconLabsVelocityLink plugin, Commands commands) {
         registerPlayerCommand(commands, plugin, "nick", "Change your nickname", List.of("nickname"), (p, args) -> plugin.handleNick(p, args));
         registerPlayerCommand(commands, plugin, "unnick", "Remove your nickname", List.of(), (p, args) -> plugin.handleNickRemove(p, args));
-        registerPlayerCommand(commands, plugin, "vanish", "Hide yourself from other players", List.of("v"), (p, args) -> plugin.handleVanish(p, args));
+        registerPlayerCommand(commands, plugin, "pvanish", "Hide yourself from other players", List.of("pv"), (p, args) -> plugin.handleVanish(p, args));
         registerPlayerCommand(commands, plugin, "settings", "Open your settings", List.of(), plugin::handleSettings);
         registerPlayerCommand(commands, plugin, "friends", "Open your friends list", List.of("friend", "f"), plugin::handleFriends);
         registerLegacyCommand(commands, "labslink", "Prints plugin information", List.of(), new LabsLinkCommand(plugin));
