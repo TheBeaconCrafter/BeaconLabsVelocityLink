@@ -222,7 +222,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
             nickedRanks.remove(player.getUniqueId());
         }
         applyNameState(player, nickname);
-        applySkinState(player, nickname, skinSource);
+        applySkinState(player, nickname, nickname);
         applyVanishState(player, vanished);
     }
 

@@ -70,7 +70,15 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
                 friendServerCache.put(uuid, friendServer);
                 friendsJoinAlertCache.put(uuid, friendsJoinAlert);
                 joinSummaryCache.put(uuid, joinSummary);
-                Bukkit.getScheduler().runTask(plugin, () -> openMainMenu(player));
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    Inventory inv = player.getOpenInventory().getTopInventory();
+                    boolean isOpen = inv != null && player.getOpenInventory().title() instanceof net.kyori.adventure.text.TextComponent && ((net.kyori.adventure.text.TextComponent) player.getOpenInventory().title()).content().equals("Settings");
+                    if (isOpen) {
+                        openMainMenu(player, inv);
+                    } else {
+                        openMainMenu(player, null);
+                    }
+                });
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse settings dialog message: " + e.getMessage());
@@ -80,6 +88,17 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player player) {
+            Inventory inv = Bukkit.createInventory(null, 54, Component.text("Settings").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
+            fillBorder(inv);
+            
+            ItemStack loading = new ItemStack(Material.CLOCK);
+            ItemMeta loadingMeta = loading.getItemMeta();
+            loadingMeta.displayName(Component.text("Loading settings...", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            loading.setItemMeta(loadingMeta);
+            inv.setItem(22, loading);
+            
+            player.openInventory(inv);
+
             try {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 DataOutputStream data = new DataOutputStream(out);
@@ -135,7 +154,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
         return item;
     }
 
-    private void openMainMenu(Player player) {
+    private void openMainMenu(Player player, Inventory existingGui) {
         Inventory gui = Bukkit.createInventory(null, 27, Component.text("Settings"));
         fillBorder(gui);
         
@@ -258,7 +277,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
             player.playSound(player.getLocation(), org.bukkit.Sound.UI_BUTTON_CLICK, 1.0f, 1.0f);
             
             if (action.equals("menu_main")) {
-                openMainMenu(player);
+                openMainMenu(player, event.getInventory());
                 return;
             } else if (action.equals("menu_privacy")) {
                 openPrivacyMenu(player);

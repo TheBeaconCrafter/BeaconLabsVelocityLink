@@ -51,10 +51,13 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         getServer().getMessenger().registerOutgoingPluginChannel(this, VisualStateService.CHANNEL);
         
         getServer().getMessenger().registerIncomingPluginChannel(this, FriendDialogService.CHANNEL, friendDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, FriendDialogService.OPEN_CHANNEL, friendDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, SettingsDialogService.CHANNEL, settingsDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, IpInfoDialogService.CHANNEL, ipInfoDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, PunishmentsDialogService.CHANNEL, punishmentsDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.CHANNEL, cloudDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.OPEN_CHANNEL, cloudDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.SUBMENU_CHANNEL, cloudDialogService);
         
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:settings_update");
         getServer().getMessenger().registerOutgoingPluginChannel(this, CloudDialogService.ACTION_CHANNEL);
@@ -200,12 +203,6 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
             data.writeUTF(action);
             data.writeUTF(nickname != null ? nickname : "");
             data.writeUTF(skinSource != null ? skinSource : "");
-            
-            String rank = "";
-            if (visualStateService != null) {
-                rank = visualStateService.getFakeRank(player);
-            }
-            data.writeUTF(rank != null ? rank : "");
             
             data.flush();
             byte[] bytes = out.toByteArray();

@@ -26,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class FriendDialogService implements PluginMessageListener, Listener {
     public static final String CHANNEL = "beaconlabs:friend_dialog";
+    public static final String OPEN_CHANNEL = "beaconlabs:friend_gui_open";
     private final BeaconLabsVelocityLink plugin;
     private final Map<UUID, List<FriendData>> playerFriendsCache = new ConcurrentHashMap<>();
     private final Map<UUID, Integer> playerPageCache = new ConcurrentHashMap<>();
@@ -39,6 +40,29 @@ public class FriendDialogService implements PluginMessageListener, Listener {
 
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
+        if (OPEN_CHANNEL.equals(channel)) {
+            Inventory inv = Bukkit.createInventory(null, 54, title);
+            
+            ItemStack glass = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+            ItemMeta glassMeta = glass.getItemMeta();
+            glassMeta.displayName(Component.text(" "));
+            glass.setItemMeta(glassMeta);
+            for (int i = 0; i < 54; i++) {
+                if (i < 9 || i > 44 || i % 9 == 0 || i % 9 == 8) {
+                    inv.setItem(i, glass);
+                }
+            }
+            
+            ItemStack loading = new ItemStack(Material.CLOCK);
+            ItemMeta loadingMeta = loading.getItemMeta();
+            loadingMeta.displayName(Component.text("Loading friends...", NamedTextColor.YELLOW).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            loading.setItemMeta(loadingMeta);
+            inv.setItem(22, loading);
+            
+            Bukkit.getScheduler().runTask(plugin, () -> player.openInventory(inv));
+            return;
+        }
+        
         if (!CHANNEL.equals(channel)) return;
 
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(message))) {
@@ -55,18 +79,30 @@ public class FriendDialogService implements PluginMessageListener, Listener {
             }
 
             playerFriendsCache.put(player.getUniqueId(), friends);
-            playerPageCache.put(player.getUniqueId(), 0);
-            Bukkit.getScheduler().runTask(plugin, () -> showDialog(player, 0));
+            
+            Bukkit.getScheduler().runTask(plugin, () -> {
+                Inventory inv = player.getOpenInventory().getTopInventory();
+                boolean isOpen = inv != null && player.getOpenInventory().title() instanceof net.kyori.adventure.text.TextComponent && ((net.kyori.adventure.text.TextComponent) player.getOpenInventory().title()).content().equals("Your Friends");
+                
+                int page = playerPageCache.getOrDefault(player.getUniqueId(), 0);
+                
+                if (isOpen) {
+                    showDialog(player, page, inv);
+                } else {
+                    showDialog(player, page, null);
+                }
+            });
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse friend dialog message: " + e.getMessage());
         }
     }
 
-    private void showDialog(Player player, int page) {
+    private void showDialog(Player player, int page, Inventory existingGui) {
         List<FriendData> friends = playerFriendsCache.getOrDefault(player.getUniqueId(), new ArrayList<>());
         
         int size = 54;
-        Inventory gui = Bukkit.createInventory(null, size, title);
+        Inventory gui = existingGui != null ? existingGui : Bukkit.createInventory(null, size, title);
+        gui.clear();
         
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
         ItemMeta borderMeta = border.getItemMeta();
@@ -159,7 +195,9 @@ public class FriendDialogService implements PluginMessageListener, Listener {
         add.setItemMeta(addMeta);
         gui.setItem(49, add);
         
-        player.openInventory(gui);
+        if (existingGui == null) {
+            player.openInventory(gui);
+        }
     }
     
     @EventHandler
@@ -174,10 +212,10 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                     
                     if (slot == 48 && event.getCurrentItem().getType() == Material.ARROW) {
                         playerPageCache.put(player.getUniqueId(), page - 1);
-                        showDialog(player, page - 1);
+                        showDialog(player, page - 1, event.getInventory());
                     } else if (slot == 50 && event.getCurrentItem().getType() == Material.ARROW) {
                         playerPageCache.put(player.getUniqueId(), page + 1);
-                        showDialog(player, page + 1);
+                        showDialog(player, page + 1, event.getInventory());
                     } else if (slot == 49 && event.getCurrentItem().getType() == Material.OAK_SIGN) {
                         player.closeInventory();
                         
