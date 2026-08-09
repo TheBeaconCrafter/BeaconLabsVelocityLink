@@ -21,7 +21,7 @@ public class LabsLinkCommand implements CommandExecutor {
                 .append(Component.text(plugin.getDescription().getVersion(), NamedTextColor.GOLD))
                 .append(Component.text(" by ItsBeacon", NamedTextColor.GRAY));
                 
-        sender.sendMessage(plugin.getPrefix().append(message));
+        sender.sendMessage(plugin.getPrefix(sender).append(message));
         return true;
     }
 }

@@ -31,7 +31,7 @@ public class CommandRegistry {
             .executes(ctx -> {
                 CommandSender sender = ctx.getSource().getSender();
                 if (!(sender instanceof Player player)) {
-                    sender.sendMessage(plugin.getPrefix().append(Component.text("Only players can use this command.", NamedTextColor.RED)));
+                    sender.sendMessage(plugin.getPrefix(sender).append(Component.text("Only players can use this command.", NamedTextColor.RED)));
                     return Command.SINGLE_SUCCESS;
                 }
                 action.accept(player, new String[0]);
@@ -41,7 +41,7 @@ public class CommandRegistry {
                 .executes(ctx -> {
                     CommandSender sender = ctx.getSource().getSender();
                     if (!(sender instanceof Player player)) {
-                        sender.sendMessage(plugin.getPrefix().append(Component.text("Only players can use this command.", NamedTextColor.RED)));
+                        sender.sendMessage(plugin.getPrefix(sender).append(Component.text("Only players can use this command.", NamedTextColor.RED)));
                         return Command.SINGLE_SUCCESS;
                     }
                     String argsStr = StringArgumentType.getString(ctx, "args");

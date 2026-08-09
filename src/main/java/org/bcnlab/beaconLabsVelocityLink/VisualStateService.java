@@ -112,7 +112,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
             if ("FORCE_UNNICK".equals(field2)) {
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     applyNick(target, null, null);
-                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was removed because a player with that name joined.", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
+                    target.sendMessage(plugin.getPrefix(target).append(net.kyori.adventure.text.Component.text("Your nickname was removed because a player with that name joined.", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
                 });
                 return;
             } else if ("FORCE_RENICK".equals(field2)) {
@@ -121,7 +121,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
                     String[] names = new String[]{"Alex", "Steve", "Herobrine", "Notch", "Technoblade", "Dream", "Xisuma", "Hypnotize", "AntVenom", "CaptainSparklez"};
                     String newNick = names[java.util.concurrent.ThreadLocalRandom.current().nextInt(names.length)];
                     applyNick(target, newNick, getFakeRank(target));
-                    target.sendMessage(plugin.getPrefix().append(net.kyori.adventure.text.Component.text("Your nickname was changed to ", net.kyori.adventure.text.format.NamedTextColor.GRAY)).append(net.kyori.adventure.text.Component.text(newNick, net.kyori.adventure.text.format.NamedTextColor.GOLD)).append(net.kyori.adventure.text.Component.text(" because the real owner joined.", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
+                    target.sendMessage(plugin.getPrefix(target).append(net.kyori.adventure.text.Component.text("Your nickname was changed to ", net.kyori.adventure.text.format.NamedTextColor.GRAY)).append(net.kyori.adventure.text.Component.text(newNick, net.kyori.adventure.text.format.NamedTextColor.GOLD)).append(net.kyori.adventure.text.Component.text(" because the real owner joined.", net.kyori.adventure.text.format.NamedTextColor.GRAY)));
                     
                     // Also notify proxy!
                     try {

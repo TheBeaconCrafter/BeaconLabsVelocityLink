@@ -115,6 +115,13 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         return prefix;
     }
 
+    public Component getPrefix(org.bukkit.command.CommandSender sender) {
+        if (sender instanceof Player) {
+            return getPrefix((Player) sender);
+        }
+        return getPrefix();
+    }
+
     public Component getPrefix(Player player) {
         int protocol = 765;
         if (Bukkit.getPluginManager().isPluginEnabled("ViaVersion")) {
