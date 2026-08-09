@@ -212,8 +212,14 @@ public final class VisualStateService implements PluginMessageListener, Listener
         vanishedPlayers.put(player.getUniqueId(), vanished);
         if (nickname != null && !nickname.isBlank()) {
             nickedPlayers.put(player.getUniqueId(), nickname);
+            if (skinSource != null && !skinSource.isBlank()) {
+                nickedRanks.put(player.getUniqueId(), skinSource);
+            } else {
+                nickedRanks.remove(player.getUniqueId());
+            }
         } else {
             nickedPlayers.remove(player.getUniqueId());
+            nickedRanks.remove(player.getUniqueId());
         }
         applyNameState(player, nickname);
         applySkinState(player, nickname, skinSource);
@@ -236,7 +242,7 @@ public final class VisualStateService implements PluginMessageListener, Listener
             net.luckperms.api.LuckPerms luckPerms = net.luckperms.api.LuckPermsProvider.get();
             net.luckperms.api.model.group.Group group = luckPerms.getGroupManager().getGroup(fakeRank.toLowerCase());
             if (group != null) {
-                String prefix = group.getCachedData().getMetaData(net.luckperms.api.query.QueryOptions.defaultContextualOptions()).getPrefix();
+                String prefix = group.getNodes(net.luckperms.api.node.NodeType.PREFIX).stream().map(net.luckperms.api.node.types.PrefixNode::getMetaValue).findFirst().orElse(null);
                 return prefix == null ? "" : prefix;
             }
         } catch (Exception e) {}

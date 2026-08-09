@@ -43,6 +43,7 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         
         IpInfoDialogService ipInfoDialogService = new IpInfoDialogService(this);
         PunishmentsDialogService punishmentsDialogService = new PunishmentsDialogService(this);
+        CloudDialogService cloudDialogService = new CloudDialogService(this);
 
         getServer().getPluginManager().registerEvents(visualStateService, this);
         
@@ -53,11 +54,30 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
         getServer().getMessenger().registerIncomingPluginChannel(this, SettingsDialogService.CHANNEL, settingsDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, IpInfoDialogService.CHANNEL, ipInfoDialogService);
         getServer().getMessenger().registerIncomingPluginChannel(this, PunishmentsDialogService.CHANNEL, punishmentsDialogService);
+        getServer().getMessenger().registerIncomingPluginChannel(this, CloudDialogService.CHANNEL, cloudDialogService);
+        
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:settings_update");
+        getServer().getMessenger().registerOutgoingPluginChannel(this, CloudDialogService.ACTION_CHANNEL);
         
         this.getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             org.bcnlab.beaconLabsVelocityLink.utils.CommandRegistry.registerAll(this, event.registrar());
         });
+
+        // Periodically announce presence to Velocity if there are players online
+        getServer().getScheduler().runTaskTimer(this, () -> {
+            Player p = org.bukkit.Bukkit.getOnlinePlayers().stream().findFirst().orElse(null);
+            if (p != null) {
+                try {
+                    ByteArrayOutputStream out = new ByteArrayOutputStream();
+                    DataOutputStream data = new DataOutputStream(out);
+                    data.writeUTF(p.getUniqueId().toString());
+                    data.writeUTF("LINK_HELLO");
+                    data.writeUTF("");
+                    data.writeUTF("");
+                    p.sendPluginMessage(this, VisualStateService.CHANNEL, out.toByteArray());
+                } catch (Exception e) {}
+            }
+        }, 100L, 200L); // every 10 seconds
         
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:friend_request");
         getServer().getMessenger().registerOutgoingPluginChannel(this, "beaconlabs:proxy_command");
