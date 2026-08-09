@@ -93,7 +93,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
             ItemStack item = new ItemStack(Material.PLAYER_HEAD);
             SkullMeta meta = (SkullMeta) item.getItemMeta();
             if (meta != null) {
-                org.bukkit.profile.PlayerProfile profile = Bukkit.createProfile(fd.uuid, fd.name);
+                org.bukkit.profile.PlayerProfile profile = Bukkit.createProfile(fd.uuid);
                 meta.setOwnerProfile(profile);
                 meta.displayName(Component.text(fd.name, 
                     fd.isOnline ? NamedTextColor.GREEN : NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));

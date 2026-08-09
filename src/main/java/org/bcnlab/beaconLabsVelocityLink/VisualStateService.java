@@ -30,6 +30,14 @@ public final class VisualStateService implements PluginMessageListener, Listener
     private final Map<UUID, Boolean> vanishedPlayers = new ConcurrentHashMap<>();
     private final Map<UUID, String> nickedPlayers = new ConcurrentHashMap<>();
     private final Map<UUID, String> nickedRanks = new ConcurrentHashMap<>();
+    
+    private static class PreloadedNick {
+        String nickname;
+        String skinSource;
+        long timestamp;
+        PreloadedNick(String n, String s, long t) { nickname = n; skinSource = s; timestamp = t; }
+    }
+    private final Map<UUID, PreloadedNick> preloadedNicks = new ConcurrentHashMap<>();
 
     public boolean isNicked(Player player) {
         return nickedPlayers.containsKey(player.getUniqueId());
@@ -52,6 +60,23 @@ public final class VisualStateService implements PluginMessageListener, Listener
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         originalProfiles.put(player.getUniqueId(), (PlayerProfile) player.getPlayerProfile().clone());
+        
+        PreloadedNick preload = preloadedNicks.remove(player.getUniqueId());
+        if (preload != null && System.currentTimeMillis() - preload.timestamp < 10000) {
+            applyState(player, preload.nickname, preload.skinSource, Boolean.TRUE.equals(vanishedPlayers.getOrDefault(player.getUniqueId(), false)));
+        } else {
+            // request state from proxy
+            try {
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                java.io.DataOutputStream data = new java.io.DataOutputStream(out);
+                data.writeUTF(player.getUniqueId().toString());
+                data.writeUTF("STATE_REQUEST");
+                data.writeUTF("");
+                data.writeUTF("");
+                player.sendPluginMessage(plugin, CHANNEL, out.toByteArray());
+            } catch (Exception e) {}
+        }
+        
         Bukkit.getScheduler().runTask(plugin, () -> applyVanishVisibility(player));
     }
 
@@ -73,6 +98,14 @@ public final class VisualStateService implements PluginMessageListener, Listener
             String field2 = in.readUTF();
             
             UUID uuid = UUID.fromString(uuidStr);
+            
+            if ("NICK_PRELOAD".equals(field2)) {
+                String nickname = in.readUTF();
+                String skinSource = in.readUTF();
+                preloadedNicks.put(uuid, new PreloadedNick(nickname, skinSource, System.currentTimeMillis()));
+                return;
+            }
+            
             Player target = Bukkit.getPlayer(uuid);
             if (target == null || !target.isOnline()) return;
 
