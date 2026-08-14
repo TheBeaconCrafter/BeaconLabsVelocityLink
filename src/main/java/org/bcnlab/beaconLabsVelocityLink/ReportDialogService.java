@@ -13,6 +13,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -69,15 +70,16 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
                 Bukkit.getScheduler().runTask(plugin, () -> openReportCreateGui(player, target));
             } else if (action.equals("OPEN_REPORTS") || action.equals("REPORTS")) {
                 int size = in.readInt();
-                List<String> reports = new ArrayList<>();
+                List<ReportData> reports = new ArrayList<>(size);
                 for (int i = 0; i < size; i++) {
-                    int id = in.readInt();
-                    String reporter = in.readUTF();
-                    String reported = in.readUTF();
-                    String reason = in.readUTF();
-                    String status = in.readUTF();
-                    String server = in.readUTF();
-                    reports.add(id + ":" + reporter + ":" + reported + ":" + reason + ":" + status + ":" + server);
+                    ReportData report = new ReportData();
+                    report.id = String.valueOf(in.readInt());
+                    report.reporter = in.readUTF();
+                    report.reported = in.readUTF();
+                    report.reason = in.readUTF();
+                    report.status = in.readUTF();
+                    report.server = in.readUTF();
+                    reports.add(report);
                 }
                 Bukkit.getScheduler().runTask(plugin, () -> openReportsGui(player, reports));
             }
@@ -92,7 +94,7 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
     }
 
     private void openReportCreateGui(Player player, String target) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text("Report: " + target));
+        Inventory inv = GuiHolder.create("reports.create", 27, Component.text("Report: " + target));
         
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
@@ -112,8 +114,8 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
         player.openInventory(inv);
     }
     
-    private void openReportsGui(Player player, List<String> reports) {
-        Inventory inv = Bukkit.createInventory(null, 54, Component.text("Active Reports"));
+    private void openReportsGui(Player player, List<ReportData> reports) {
+        Inventory inv = GuiHolder.create("reports.list", 54, Component.text("Active Reports"));
         
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
@@ -122,33 +124,24 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
         for (int i = 0; i < 54; i++) inv.setItem(i, bg);
 
         int slot = 0;
-        for (String repStr : reports) {
+        for (ReportData report : reports) {
             if (slot >= 45) break;
-            
-            String[] parts = repStr.split(":");
-            if (parts.length >= 6) {
-                String id = parts[0];
-                String reporter = parts[1];
-                String reported = parts[2];
-                String reason = parts[3];
-                String status = parts[4];
-                String server = parts[5];
-                
-                ItemStack item = new ItemStack(Material.PAPER);
-                ItemMeta meta = item.getItemMeta();
-                meta.displayName(Component.text("Report #" + id, NamedTextColor.GOLD, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
-                List<Component> lore = new ArrayList<>();
-                lore.add(Component.text("Reporter: ", NamedTextColor.GRAY).append(Component.text(reporter, NamedTextColor.YELLOW)).decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("Reported: ", NamedTextColor.GRAY).append(Component.text(reported, NamedTextColor.RED)).decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("Server: ", NamedTextColor.GRAY).append(Component.text(server, NamedTextColor.WHITE)).decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("Reason: ", NamedTextColor.GRAY).append(Component.text(reason, NamedTextColor.WHITE)).decoration(TextDecoration.ITALIC, false));
-                lore.add(Component.text("Status: ", NamedTextColor.GRAY).append(Component.text(status, NamedTextColor.GREEN)).decoration(TextDecoration.ITALIC, false));
-                meta.lore(lore);
-                meta.getPersistentDataContainer().set(ACTION_KEY, PersistentDataType.STRING, "view_report_" + id + ":" + reporter + ":" + reported + ":" + reason + ":" + status + ":" + server);
-                item.setItemMeta(meta);
-                
-                inv.setItem(slot++, item);
-            }
+
+            ItemStack item = new ItemStack(Material.PAPER);
+            ItemMeta meta = item.getItemMeta();
+            meta.displayName(Component.text("Report #" + report.id, NamedTextColor.GOLD, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("Reporter: ", NamedTextColor.GRAY).append(Component.text(report.reporter, NamedTextColor.YELLOW)).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("Reported: ", NamedTextColor.GRAY).append(Component.text(report.reported, NamedTextColor.RED)).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("Server: ", NamedTextColor.GRAY).append(Component.text(report.server, NamedTextColor.WHITE)).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("Reason: ", NamedTextColor.GRAY).append(Component.text(report.reason, NamedTextColor.WHITE)).decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("Status: ", NamedTextColor.GRAY).append(Component.text(report.status, NamedTextColor.GREEN)).decoration(TextDecoration.ITALIC, false));
+            meta.lore(lore);
+            meta.getPersistentDataContainer().set(ACTION_KEY, PersistentDataType.STRING,
+                    "view_report_" + report.id + ":" + report.reporter + ":" + report.reported + ":" + report.reason + ":" + report.status + ":" + report.server);
+            item.setItemMeta(meta);
+
+            inv.setItem(slot++, item);
         }
 
         inv.setItem(49, createReasonItem(Material.BARRIER, "Close", "report_close"));
@@ -158,7 +151,7 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
     }
 
     private void openReportActionGui(Player player, ReportData data) {
-        Inventory inv = Bukkit.createInventory(null, 36, Component.text("Report #" + data.id + " Actions"));
+        Inventory inv = GuiHolder.create("reports.action", 36, Component.text("Report #" + data.id + " Actions"));
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
         bgMeta.displayName(Component.empty());
@@ -197,7 +190,7 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
     }
 
     private void openReportResolveGui(Player player, ReportData data) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text("Resolve Report #" + data.id));
+        Inventory inv = GuiHolder.create("reports.resolve", 27, Component.text("Resolve Report #" + data.id));
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
         bgMeta.displayName(Component.empty());
@@ -214,7 +207,7 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
     }
 
     private void openReportRejectGui(Player player, ReportData data) {
-        Inventory inv = Bukkit.createInventory(null, 27, Component.text("Reject Report #" + data.id));
+        Inventory inv = GuiHolder.create("reports.reject", 27, Component.text("Reject Report #" + data.id));
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
         bgMeta.displayName(Component.empty());
@@ -242,8 +235,9 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
     public void onClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         
-        String title = event.getView().title().toString();
-        if (title.contains("Report: ") || title.contains("Active Reports") || title.contains("Report #") || title.contains("Resolve Report #") || title.contains("Reject Report #")) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof GuiHolder holder)) return;
+        String guiId = holder.getId();
+        if (guiId.startsWith("reports.")) {
             event.setCancelled(true);
             
             ItemStack clicked = event.getCurrentItem();
@@ -357,6 +351,13 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
         }
     }
     
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        reportingTarget.remove(uuid);
+        viewingReport.remove(uuid);
+    }
+
     @EventHandler
     public void onClose(InventoryCloseEvent event) {
         reportingTarget.remove(event.getPlayer().getUniqueId());

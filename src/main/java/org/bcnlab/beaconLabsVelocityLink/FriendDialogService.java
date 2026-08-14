@@ -6,6 +6,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -20,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,6 +34,8 @@ public class FriendDialogService implements PluginMessageListener, Listener {
     private final Map<UUID, Integer> playerPageCache = new ConcurrentHashMap<>();
 
     private final Component title = Component.text("Your Friends").color(NamedTextColor.DARK_PURPLE);
+    private static final MiniMessage MINI_MESSAGE = MiniMessage.miniMessage();
+    private final java.text.SimpleDateFormat dateFormat = new java.text.SimpleDateFormat("MMM dd, yyyy");
 
     public FriendDialogService(BeaconLabsVelocityLink plugin) {
         this.plugin = plugin;
@@ -41,7 +45,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (OPEN_CHANNEL.equals(channel)) {
-            Inventory inv = Bukkit.createInventory(null, 54, title);
+            Inventory inv = GuiHolder.create("friends.main", 54, title);
             
             ItemStack glass = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
             ItemMeta glassMeta = glass.getItemMeta();
@@ -78,7 +82,9 @@ public class FriendDialogService implements PluginMessageListener, Listener {
             
             Bukkit.getScheduler().runTask(plugin, () -> {
                 Inventory inv = player.getOpenInventory().getTopInventory();
-                boolean isOpen = inv != null && player.getOpenInventory().title() instanceof net.kyori.adventure.text.TextComponent && ((net.kyori.adventure.text.TextComponent) player.getOpenInventory().title()).content().equals("Your Friends");
+                boolean isOpen = inv != null
+                        && inv.getHolder() instanceof GuiHolder holder
+                        && "friends.main".equals(holder.getId());
                 
                 int page = playerPageCache.getOrDefault(player.getUniqueId(), 0);
                 
@@ -94,10 +100,10 @@ public class FriendDialogService implements PluginMessageListener, Listener {
     }
 
     private void showDialog(Player player, int page, Inventory existingGui) {
-        List<FriendData> friends = playerFriendsCache.getOrDefault(player.getUniqueId(), new ArrayList<>());
+        List<FriendData> friends = playerFriendsCache.getOrDefault(player.getUniqueId(), Collections.emptyList());
         
         int size = 54;
-        Inventory gui = existingGui != null ? existingGui : Bukkit.createInventory(null, size, title);
+        Inventory gui = existingGui != null ? existingGui : GuiHolder.create("friends.main", size, title);
         gui.clear();
         
         ItemStack border = new ItemStack(Material.BLACK_STAINED_GLASS_PANE);
@@ -146,7 +152,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                             .append(Component.text("Offline", NamedTextColor.RED))
                             .decoration(TextDecoration.ITALIC, false));
                     if (fd.lastOnline > 0) {
-                        String date = new java.text.SimpleDateFormat("MMM dd, yyyy").format(new java.util.Date(fd.lastOnline));
+                        String date = dateFormat.format(new java.util.Date(fd.lastOnline));
                         lore.add(Component.text("  Last seen: " + date, NamedTextColor.DARK_GRAY)
                                 .decoration(TextDecoration.ITALIC, false));
                     }
@@ -154,7 +160,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                 
                 if (fd.friendsSince > 0) {
                     lore.add(Component.empty());
-                    String date = new java.text.SimpleDateFormat("MMM dd, yyyy").format(new java.util.Date(fd.friendsSince));
+                    String date = dateFormat.format(new java.util.Date(fd.friendsSince));
                     lore.add(Component.text("Friends since " + date, NamedTextColor.YELLOW)
                             .decoration(TextDecoration.ITALIC, false));
                 }
@@ -198,7 +204,8 @@ public class FriendDialogService implements PluginMessageListener, Listener {
     
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getView().title().equals(title)) {
+        if (event.getView().getTopInventory().getHolder() instanceof GuiHolder holder
+                && "friends.main".equals(holder.getId())) {
             event.setCancelled(true);
             
             if (event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.BLACK_STAINED_GLASS_PANE && event.getCurrentItem().getType() != Material.AIR) {
@@ -259,7 +266,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                             
                             if (event.isLeftClick()) {
                                 player.closeInventory();
-                                List<FriendData> friends = playerFriendsCache.getOrDefault(player.getUniqueId(), new ArrayList<>());
+                                List<FriendData> friends = playerFriendsCache.getOrDefault(player.getUniqueId(), Collections.emptyList());
                                 String targetServer = null;
                                 for (FriendData fd : friends) {
                                     if (fd.uuid.equals(meta.getOwnerProfile().getUniqueId())) {
@@ -276,7 +283,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                                         player.sendPluginMessage(plugin, "beaconlabs:proxy_command", b.toByteArray());
                                     } catch (Exception e) {}
                                 } else {
-                                    player.sendMessage(MiniMessage.miniMessage().deserialize("<red>Could not connect to this friend's server.</red>"));
+                                    player.sendMessage(MINI_MESSAGE.deserialize("<red>Could not connect to this friend's server.</red>"));
                                 }
                             } else if (event.isRightClick()) {
                                 player.closeInventory();
@@ -296,6 +303,13 @@ public class FriendDialogService implements PluginMessageListener, Listener {
     }
 
     @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        playerFriendsCache.remove(uuid);
+        playerPageCache.remove(uuid);
+    }
+
+    @EventHandler
     public void onSignChange(org.bukkit.event.block.SignChangeEvent event) {
         org.bukkit.block.Sign sign = (org.bukkit.block.Sign) event.getBlock().getState();
         if (sign.getPersistentDataContainer().has(new org.bukkit.NamespacedKey(plugin, "add_friend_sign"), org.bukkit.persistence.PersistentDataType.BYTE)) {
@@ -306,7 +320,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
             
             String friendName = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.line(0)).trim();
             if (friendName.isEmpty()) {
-                event.getPlayer().sendMessage(MiniMessage.miniMessage().deserialize("<red>You didn't enter a name.</red>"));
+                event.getPlayer().sendMessage(MINI_MESSAGE.deserialize("<red>You didn't enter a name.</red>"));
                 return;
             }
             
@@ -317,7 +331,7 @@ public class FriendDialogService implements PluginMessageListener, Listener {
                 out.writeUTF(event.getPlayer().getUniqueId().toString());
                 out.writeUTF("friend add " + friendName);
                 event.getPlayer().sendPluginMessage(plugin, "beaconlabs:proxy_command", b.toByteArray());
-                event.getPlayer().sendMessage(MiniMessage.miniMessage().deserialize("<green>Sent friend request to " + friendName + "!</green>"));
+                event.getPlayer().sendMessage(MINI_MESSAGE.deserialize("<green>Sent friend request to " + friendName + "!</green>"));
             } catch (Exception e) {}
         }
     }

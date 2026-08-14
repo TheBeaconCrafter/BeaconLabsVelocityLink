@@ -13,6 +13,8 @@ import com.destroystokyo.paper.profile.ProfileProperty;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
@@ -30,6 +32,8 @@ public final class VisualStateService implements PluginMessageListener, Listener
     private final Map<UUID, Boolean> vanishedPlayers = new ConcurrentHashMap<>();
     private final Map<UUID, String> nickedPlayers = new ConcurrentHashMap<>();
     private final Map<UUID, String> nickedRanks = new ConcurrentHashMap<>();
+    private final Map<String, String> luckPermsPrefixCache = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<Set<ProfileProperty>>> skinPropertiesCache = new ConcurrentHashMap<>();
     
     private static class PreloadedNick {
         String nickname;
@@ -85,6 +89,9 @@ public final class VisualStateService implements PluginMessageListener, Listener
         UUID uuid = event.getPlayer().getUniqueId();
         originalProfiles.remove(uuid);
         vanishedPlayers.remove(uuid);
+        nickedPlayers.remove(uuid);
+        nickedRanks.remove(uuid);
+        preloadedNicks.remove(uuid);
     }
 
     @Override
@@ -228,14 +235,17 @@ public final class VisualStateService implements PluginMessageListener, Listener
     }
 
     private String getLuckPermsPrefix(String fakeRank) {
-        if (!Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
+        if (fakeRank == null || fakeRank.isBlank() || !Bukkit.getPluginManager().isPluginEnabled("LuckPerms")) {
             return "";
         }
-        try {
-            return getLuckPermsPrefixInternal(fakeRank);
-        } catch (Throwable t) {
-            return "";
-        }
+        String cacheKey = fakeRank.toLowerCase(java.util.Locale.ROOT);
+        return luckPermsPrefixCache.computeIfAbsent(cacheKey, key -> {
+            try {
+                return getLuckPermsPrefixInternal(key);
+            } catch (Throwable t) {
+                return "";
+            }
+        });
     }
 
     private String getLuckPermsPrefixInternal(String fakeRank) {
@@ -372,8 +382,9 @@ public final class VisualStateService implements PluginMessageListener, Listener
     private void cleanupTeams(Player player) {
         Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
         String real = player.getName();
-        for (Team t : board.getTeams()) {
-            if (t.hasEntry(real)) t.removeEntry(real);
+        Team team = board.getEntryTeam(real);
+        if (team != null) {
+            team.removeEntry(real);
         }
     }
 
@@ -392,23 +403,36 @@ public final class VisualStateService implements PluginMessageListener, Listener
         String source = (skinSource != null && !skinSource.isBlank()) ? skinSource : nickname;
         if (source == null || source.isBlank()) return;
 
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-            PlayerProfile lookup = Bukkit.createProfile(source);
-            lookup.complete(true);
-            Bukkit.getScheduler().runTask(plugin, () -> {
-                if (!player.isOnline()) return;
-                if (!lookup.hasProperty("textures")) {
-                    log.warning("[VS] Skin resolved but no textures for " + source);
-                    return;
-                }
-                log.info("[VS] Applying skin for " + source + " to " + player.getName());
-                boolean applied = applyPlayerProfile(player, lookup);
-                log.info("[VS] Skin application result: " + applied);
-                if (applied && !Boolean.TRUE.equals(vanishedPlayers.get(player.getUniqueId()))) {
-                    refreshViewersDelayed(player);
+        String cacheKey = source.toLowerCase(java.util.Locale.ROOT);
+        CompletableFuture<Set<ProfileProperty>> profileFuture = skinPropertiesCache.computeIfAbsent(cacheKey, key -> {
+            CompletableFuture<Set<ProfileProperty>> future = new CompletableFuture<>();
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                try {
+                    PlayerProfile lookup = Bukkit.createProfile(source);
+                    lookup.complete(true);
+                    if (!lookup.hasProperty("textures")) {
+                        future.completeExceptionally(new IllegalStateException("No textures returned"));
+                    } else {
+                        future.complete(Set.copyOf(lookup.getProperties()));
+                    }
+                } catch (Throwable error) {
+                    future.completeExceptionally(error);
                 }
             });
+            return future;
         });
+        profileFuture.whenComplete((properties, error) -> Bukkit.getScheduler().runTask(plugin, () -> {
+            if (error != null) {
+                skinPropertiesCache.remove(cacheKey, profileFuture);
+                log.warning("[VS] Failed to resolve skin for " + source + ": " + error.getMessage());
+                return;
+            }
+            if (!player.isOnline()) return;
+            boolean applied = applyPlayerProfile(player, properties);
+            if (applied && !Boolean.TRUE.equals(vanishedPlayers.get(player.getUniqueId()))) {
+                refreshViewersDelayed(player);
+            }
+        }));
     }
 
     private void applyVanishState(Player player, boolean vanished) {
@@ -448,11 +472,14 @@ public final class VisualStateService implements PluginMessageListener, Listener
     }
 
     private boolean applyPlayerProfile(Player player, PlayerProfile profile) {
+        return applyPlayerProfile(player, profile.getProperties());
+    }
+
+    private boolean applyPlayerProfile(Player player, Set<ProfileProperty> properties) {
         try {
             PlayerProfile current = (PlayerProfile) player.getPlayerProfile();
-            current.setProperties(profile.getProperties());
+            current.setProperties(properties);
             player.setPlayerProfile(current);
-            log.info("[VS] applyPlayerProfile SUCCESS for " + player.getName());
             return true;
         } catch (Exception e) {
             log.warning("[VS] applyPlayerProfile failed: " + e.getClass().getSimpleName() + " - " + e.getMessage());

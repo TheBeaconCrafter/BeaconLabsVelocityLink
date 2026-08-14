@@ -2,6 +2,9 @@ package org.bcnlab.beaconLabsVelocityLink;
 
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.messaging.PluginMessageListener;
 import org.jetbrains.annotations.NotNull;
 
@@ -11,7 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class ProtocolSyncService implements PluginMessageListener {
+public class ProtocolSyncService implements PluginMessageListener, Listener {
     public static final String CHANNEL = "beaconlabs:protocol_version";
     private static ProtocolSyncService instance;
     private final BeaconLabsVelocityLink plugin;
@@ -20,6 +23,7 @@ public class ProtocolSyncService implements PluginMessageListener {
     public ProtocolSyncService(BeaconLabsVelocityLink plugin) {
         this.plugin = plugin;
         instance = this;
+        Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
     public static ProtocolSyncService getInstance() {
@@ -35,13 +39,16 @@ public class ProtocolSyncService implements PluginMessageListener {
             protocolVersions.put(uuid, protocol);
             Player target = Bukkit.getPlayer(uuid);
             if (target != null) {
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    target.setMetadata("protocol_version", new org.bukkit.metadata.FixedMetadataValue(plugin, protocol));
-                });
+                target.setMetadata("protocol_version", new org.bukkit.metadata.FixedMetadataValue(plugin, protocol));
             }
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse protocol version sync: " + e.getMessage());
         }
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        protocolVersions.remove(event.getPlayer().getUniqueId());
     }
 
     public int getProtocolVersion(UUID uuid) {

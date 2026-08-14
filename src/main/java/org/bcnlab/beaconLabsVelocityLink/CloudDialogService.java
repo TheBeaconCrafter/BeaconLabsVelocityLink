@@ -30,7 +30,6 @@ public class CloudDialogService implements PluginMessageListener, Listener {
     public static final String SUBMENU_CHANNEL = "beaconlabs:cloud_gui_submenu";
     public static final String ADD_CHANNEL = "beaconlabs:cloud_server_add";
     private static final org.bukkit.NamespacedKey SERVER_ID_KEY = new org.bukkit.NamespacedKey("beaconlabs", "server_id");
-    private final java.util.Map<java.util.UUID, java.util.List<ItemStack>> cachedServers = new java.util.concurrent.ConcurrentHashMap<>();
 
     public CloudDialogService(BeaconLabsVelocityLink plugin) {
         this.plugin = plugin;
@@ -40,7 +39,7 @@ public class CloudDialogService implements PluginMessageListener, Listener {
     @Override
     public void onPluginMessageReceived(String channel, Player player, byte[] message) {
         if (channel.equals(OPEN_CHANNEL)) {
-            Inventory inv = Bukkit.createInventory(null, 54, Component.text("Cloud Servers").decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            Inventory inv = GuiHolder.create("cloud.main", 54, Component.text("Cloud Servers").decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
             
             ItemStack glass = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
             ItemMeta glassMeta = glass.getItemMeta();
@@ -88,11 +87,11 @@ public class CloudDialogService implements PluginMessageListener, Listener {
                 meta.getPersistentDataContainer().set(SERVER_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING, id);
                 item.setItemMeta(meta);
                 
-                cachedServers.computeIfAbsent(player.getUniqueId(), k -> new java.util.ArrayList<>()).add(item);
-                
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     Inventory inv = player.getOpenInventory().getTopInventory();
-                    boolean isOpen = inv != null && player.getOpenInventory().title() instanceof net.kyori.adventure.text.TextComponent && ((net.kyori.adventure.text.TextComponent) player.getOpenInventory().title()).content().equals("Cloud Servers");
+                    boolean isOpen = inv != null
+                            && inv.getHolder() instanceof GuiHolder holder
+                            && "cloud.main".equals(holder.getId());
                     if (isOpen) {
                         for (int i = 0; i < 54; i++) {
                             if (i < 9 || i > 44 || i % 9 == 0 || i % 9 == 8) continue;
@@ -111,7 +110,7 @@ public class CloudDialogService implements PluginMessageListener, Listener {
                 boolean running = in.readBoolean();
                 boolean installing = in.readBoolean();
                 
-                Inventory inv = Bukkit.createInventory(null, 27, Component.text("Manage: " + name).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+                Inventory inv = GuiHolder.create("cloud.manage", 27, Component.text("Manage: " + name).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
                 
                 // Status item
                 ItemStack statusItem = new ItemStack(running ? Material.EMERALD_BLOCK : Material.REDSTONE_BLOCK);
@@ -120,6 +119,7 @@ public class CloudDialogService implements PluginMessageListener, Listener {
                 List<Component> statusLore = new ArrayList<>();
                 statusLore.add(Component.text("ID: " + id, NamedTextColor.GRAY).decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
                 statusMeta.lore(statusLore);
+                statusMeta.getPersistentDataContainer().set(SERVER_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING, id);
                 statusItem.setItemMeta(statusMeta);
                 inv.setItem(4, statusItem);
                 
@@ -160,31 +160,29 @@ public class CloudDialogService implements PluginMessageListener, Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        String title = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (title.equals("Cloud Servers")) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof GuiHolder holder)) return;
+        String guiId = holder.getId();
+        if ("cloud.main".equals(guiId)) {
             event.setCancelled(true);
             if (event.getCurrentItem() == null || event.getCurrentItem().getItemMeta() == null) return;
             
             Player player = (Player) event.getWhoClicked();
-            List<Component> lore = event.getCurrentItem().getItemMeta().lore();
-            if (lore == null || lore.isEmpty()) return;
-            
-            String idLine = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(lore.get(0));
-            String id = idLine.replace("ID: ", "");
-            String name = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getCurrentItem().getItemMeta().displayName());
-            
+            ItemMeta meta = event.getCurrentItem().getItemMeta();
+            String id = meta.getPersistentDataContainer().get(SERVER_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+            if (id == null) return;
+            String name = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(meta.displayName());
+
             sendAction(player, "INFO", id, name);
-        } else if (title.startsWith("Manage: ")) {
+        } else if ("cloud.manage".equals(guiId)) {
             event.setCancelled(true);
             if (event.getCurrentItem() == null || event.getCurrentItem().getItemMeta() == null) return;
             
             Player player = (Player) event.getWhoClicked();
             ItemStack statusItem = event.getInventory().getItem(4);
-            if (statusItem == null || statusItem.getItemMeta() == null || statusItem.getItemMeta().lore() == null) return;
-            
-            String idLine = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(statusItem.getItemMeta().lore().get(0));
-            String id = idLine.replace("ID: ", "");
-            
+            if (statusItem == null || statusItem.getItemMeta() == null) return;
+            String id = statusItem.getItemMeta().getPersistentDataContainer().get(SERVER_ID_KEY, org.bukkit.persistence.PersistentDataType.STRING);
+            if (id == null) return;
+
             Material type = event.getCurrentItem().getType();
             if (type == Material.ARROW) {
                 // Return to main menu - we can just run the cloud command

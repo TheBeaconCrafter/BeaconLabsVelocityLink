@@ -197,7 +197,6 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
     }
 
     public boolean handleVanish(Player player, String[] args) {
-        getLogger().info("[CMD] /pvanish player=" + player.getName() + " uuid=" + player.getUniqueId());
         boolean isVanished = visualStateService.toggleVanish(player);
         sendToProxy(player, "VANISH", "", "");
         
@@ -221,7 +220,6 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
     }
 
     private void sendToProxy(Player player, String action, String nickname, String skinSource) {
-        getLogger().info("[CMD] sendToProxy player=" + player.getName() + " action=" + action + " nick=" + nickname + " skin=" + skinSource);
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             DataOutputStream data = new DataOutputStream(out);
@@ -232,9 +230,7 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
             
             data.flush();
             byte[] bytes = out.toByteArray();
-            getLogger().info("[CMD] Sending " + bytes.length + " bytes to proxy on channel " + VisualStateService.CHANNEL);
             player.sendPluginMessage(this, VisualStateService.CHANNEL, bytes);
-            getLogger().info("[CMD] Plugin message sent successfully");
         } catch (IOException e) {
             getLogger().warning("[CMD] Failed to send visual state: " + e.getMessage());
         }

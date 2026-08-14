@@ -70,7 +70,7 @@ public class PunishmentsDialogService implements PluginMessageListener, Listener
     }
 
     private void openPunishmentsGui(Player player, String targetName, List<PunishmentRecord> history) {
-        Inventory inv = Bukkit.createInventory(null, 54, Component.text(targetName + "'s Punishments"));
+        Inventory inv = GuiHolder.create("punishments", 54, Component.text(targetName + "'s Punishments"));
 
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
@@ -146,8 +146,8 @@ public class PunishmentsDialogService implements PluginMessageListener, Listener
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        String titleStr = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (titleStr.contains("'s Punishments")) {
+        if (event.getView().getTopInventory().getHolder() instanceof GuiHolder holder
+                && "punishments".equals(holder.getId())) {
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || !clicked.hasItemMeta()) return;

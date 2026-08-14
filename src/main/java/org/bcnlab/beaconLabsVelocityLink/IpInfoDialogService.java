@@ -74,7 +74,7 @@ public class IpInfoDialogService implements PluginMessageListener, Listener {
     }
 
     private void openIpInfoGui(Player player, String ip, String targetName, int confidenceScore, String usageType, String isp, String domain, String countryName, String countryCode, boolean isTor, int totalReports, String lastReportedAt, boolean whitelisted, boolean blacklisted, String action, List<KnownAccount> accounts) {
-        Inventory inv = Bukkit.createInventory(null, 54, Component.text("IP Info: " + ip));
+        Inventory inv = GuiHolder.create("ipinfo", 54, Component.text("IP Info: " + ip));
 
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta bgMeta = bg.getItemMeta();
@@ -173,8 +173,8 @@ public class IpInfoDialogService implements PluginMessageListener, Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        String titleStr = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (titleStr.startsWith("IP Info:")) {
+        if (event.getView().getTopInventory().getHolder() instanceof GuiHolder holder
+                && "ipinfo".equals(holder.getId())) {
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || !clicked.hasItemMeta()) return;

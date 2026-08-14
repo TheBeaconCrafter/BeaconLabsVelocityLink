@@ -29,6 +29,7 @@ public class InfoDialogService implements PluginMessageListener, Listener {
     private final BeaconLabsVelocityLink plugin;
     public static final String CHANNEL = "beaconlabs:info_dialog";
     private final org.bukkit.NamespacedKey ACTION_KEY;
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     public InfoDialogService(BeaconLabsVelocityLink plugin) {
         this.plugin = plugin;
@@ -103,7 +104,7 @@ public class InfoDialogService implements PluginMessageListener, Listener {
     }
 
     private void openInfoGui(Player player, String targetUuidStr, String realName, boolean isNickname, String nickname, long playtimeMs, long lastSeenMs, boolean online, String proxy, String server, long ping, String client, long activeBans, long activeMutes, boolean hasIpInfo, boolean hasHistory, boolean hasGoto) {
-        Inventory inv = Bukkit.createInventory(null, 36, Component.text("Player Info: " + realName));
+        Inventory inv = GuiHolder.create("info", 36, Component.text("Player Info: " + realName));
 
         // Background
         ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
@@ -134,7 +135,6 @@ public class InfoDialogService implements PluginMessageListener, Listener {
         clockMeta.displayName(Component.text("Activity", NamedTextColor.GOLD, TextDecoration.BOLD).decoration(TextDecoration.ITALIC, false));
         List<Component> clockLore = new ArrayList<>();
         clockLore.add(Component.text("Playtime: ", NamedTextColor.GRAY).append(Component.text(formatPlaytime(playtimeMs), NamedTextColor.YELLOW)).decoration(TextDecoration.ITALIC, false));
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         if (lastSeenMs > 0) {
             clockLore.add(Component.text("Last Seen: ", NamedTextColor.GRAY).append(Component.text(dateFormat.format(new Date(lastSeenMs)), NamedTextColor.YELLOW)).decoration(TextDecoration.ITALIC, false));
         }
@@ -189,7 +189,8 @@ public class InfoDialogService implements PluginMessageListener, Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        if (event.getView().title().toString().contains("Player Info")) {
+        if (event.getView().getTopInventory().getHolder() instanceof GuiHolder holder
+                && "info".equals(holder.getId())) {
             event.setCancelled(true);
             ItemStack clicked = event.getCurrentItem();
             if (clicked == null || !clicked.hasItemMeta()) return;

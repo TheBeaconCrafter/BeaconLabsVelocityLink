@@ -11,6 +11,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -73,7 +74,9 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
                 joinSummaryCache.put(uuid, joinSummary);
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     Inventory inv = player.getOpenInventory().getTopInventory();
-                    boolean isOpen = inv != null && player.getOpenInventory().title() instanceof net.kyori.adventure.text.TextComponent && ((net.kyori.adventure.text.TextComponent) player.getOpenInventory().title()).content().equals("Settings");
+                    boolean isOpen = inv != null
+                            && inv.getHolder() instanceof GuiHolder holder
+                            && "settings.main".equals(holder.getId());
                     if (isOpen) {
                         openMainMenu(player, inv);
                     } else {
@@ -89,7 +92,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player player) {
-            Inventory inv = Bukkit.createInventory(null, 27, Component.text("Settings").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
+            Inventory inv = GuiHolder.create("settings.main", 27, Component.text("Settings").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
             fillBorder(inv);
             
 
@@ -108,7 +111,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     }
 
     private void fillBorder(Inventory inv) {
-        ItemStack border = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
+        ItemStack border = new ItemStack(Material.LIGHT_GRAY_STAINED_GLASS_PANE);
         ItemMeta meta = border.getItemMeta();
         meta.displayName(Component.empty());
         border.setItemMeta(meta);
@@ -152,17 +155,20 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     }
 
     private void openMainMenu(Player player, Inventory existingGui) {
-        Inventory gui = Bukkit.createInventory(null, 27, Component.text("Settings"));
+        Inventory gui = existingGui != null && existingGui.getSize() == 27
+                ? existingGui
+                : GuiHolder.create("settings.main", 27, Component.text("Settings"));
+        gui.clear();
         fillBorder(gui);
-        
+
         gui.setItem(11, createMenuNav(Material.IRON_DOOR, "Privacy Settings", NamedTextColor.AQUA, "Manage messages, friend requests...", "menu_privacy"));
         gui.setItem(15, createMenuNav(Material.BELL, "Alerts & Notifications", NamedTextColor.YELLOW, "Manage join alerts and summaries...", "menu_alerts"));
-        
+
         player.openInventory(gui);
     }
 
     private void openPrivacyMenu(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 36, Component.text("Settings > Privacy"));
+        Inventory gui = GuiHolder.create("settings.privacy", 36, Component.text("Settings > Privacy"));
         fillBorder(gui);
         
         String msgPrivacy = msgPrivacyCache.getOrDefault(player.getUniqueId(), "everyone");
@@ -179,7 +185,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     }
     
     private void openAlertsMenu(Player player) {
-        Inventory gui = Bukkit.createInventory(null, 36, Component.text("Settings > Alerts"));
+        Inventory gui = GuiHolder.create("settings.alerts", 36, Component.text("Settings > Alerts"));
         fillBorder(gui);
         
         String joinAlert = friendsJoinAlertCache.getOrDefault(player.getUniqueId(), "on");
@@ -258,9 +264,19 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     }
 
     @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        UUID uuid = event.getPlayer().getUniqueId();
+        msgPrivacyCache.remove(uuid);
+        friendReqCache.remove(uuid);
+        friendServerCache.remove(uuid);
+        friendsJoinAlertCache.remove(uuid);
+        joinSummaryCache.remove(uuid);
+    }
+
+    @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        String titleStr = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
-        if (titleStr.startsWith("Settings")) {
+        if (!(event.getView().getTopInventory().getHolder() instanceof GuiHolder holder)) return;
+        if (holder.getId().startsWith("settings.")) {
             event.setCancelled(true);
             
             ItemStack clicked = event.getCurrentItem();
