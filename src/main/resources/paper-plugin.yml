@@ -3,3 +3,26 @@ version: '${version}'
 main: org.bcnlab.beaconLabsVelocityLink.BeaconLabsVelocityLink
 api-version: '1.21'
 
+permissions:
+  beaconlabs.velocitylink.nick:
+    description: Change your nickname
+    default: false
+  beaconlabs.velocitylink.unnick:
+    description: Remove your own nickname
+    default: false
+  beaconlabs.admin.unnick:
+    description: Remove another player's nickname
+    default: op
+  beaconlabs.velocitylink.vanish:
+    description: Hide yourself from other players
+    default: false
+  beaconlabs.velocitylink.settings:
+    description: Open the settings GUI
+    default: true
+  beaconlabs.velocitylink.friends:
+    description: Open the friends GUI
+    default: true
+  beaconlabs.velocitylink.labslink:
+    description: View BeaconLabsVelocityLink information
+    default: op
+

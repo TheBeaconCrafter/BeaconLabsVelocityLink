@@ -5,9 +5,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -33,7 +30,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
-public class ReportDialogService implements PluginMessageListener, Listener, CommandExecutor {
+public class ReportDialogService implements PluginMessageListener, Listener {
     public static final String CHANNEL = "beaconlabs:report_dialog";
     private final BeaconLabsVelocityLink plugin;
     
@@ -86,11 +83,6 @@ public class ReportDialogService implements PluginMessageListener, Listener, Com
         } catch (Exception e) {
             plugin.getLogger().warning("Failed to parse report dialog message: " + e.getMessage());
         }
-    }
-
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        return true;
     }
 
     private void openReportCreateGui(Player player, String target) {

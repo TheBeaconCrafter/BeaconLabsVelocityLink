@@ -4,9 +4,6 @@ import org.bcnlab.beaconLabsVelocityLink.SoundUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -32,7 +29,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 
-public class SettingsDialogService implements PluginMessageListener, Listener, CommandExecutor {
+public class SettingsDialogService implements PluginMessageListener, Listener {
     public static final String CHANNEL = "beaconlabs:settings_dialog";
     private final BeaconLabsVelocityLink plugin;
     
@@ -89,25 +86,20 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
         }
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (sender instanceof Player player) {
-            Inventory inv = GuiHolder.create("settings.main", 27, Component.text("Settings", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
-            fillBorder(inv);
-            
+    public void openSettings(Player player, String[] args) {
+        Inventory inv = GuiHolder.create("settings.main", 27, Component.text("Settings", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
+        fillBorder(inv);
+        player.openInventory(inv);
 
-            
-            player.openInventory(inv);
-
-            try {
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                DataOutputStream data = new DataOutputStream(out);
-                data.writeUTF(player.getUniqueId().toString());
-                data.writeUTF("settings");
-                player.sendPluginMessage(plugin, "beaconlabs:proxy_command", out.toByteArray());
-            } catch (Exception e) {}
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            DataOutputStream data = new DataOutputStream(out);
+            data.writeUTF(player.getUniqueId().toString());
+            data.writeUTF("settings");
+            player.sendPluginMessage(plugin, "beaconlabs:proxy_command", out.toByteArray());
+        } catch (Exception e) {
+            plugin.getLogger().warning("Failed to request settings: " + e.getMessage());
         }
-        return true;
     }
 
     private void fillBorder(Inventory inv) {

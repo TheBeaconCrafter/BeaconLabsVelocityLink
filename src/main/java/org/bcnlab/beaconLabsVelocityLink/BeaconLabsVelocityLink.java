@@ -1,11 +1,6 @@
 package org.bcnlab.beaconLabsVelocityLink;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import io.papermc.paper.command.brigadier.Commands;
-import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import org.bukkit.command.CommandSender;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -13,7 +8,6 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import net.kyori.adventure.text.Component;
@@ -179,7 +173,11 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
     }
 
     public boolean handleNickRemove(Player player, String[] args) {
-        if (args.length > 0 && player.hasPermission("beaconlabs.admin.unnick")) {
+        if (args.length > 0 && !player.hasPermission("beaconlabs.admin.unnick")) {
+            player.sendMessage(getPrefix(player).append(Component.text("You do not have permission to unnick other players.", NamedTextColor.RED)));
+            return false;
+        }
+        if (args.length > 0) {
             Player target = Bukkit.getPlayer(args[0]);
             if (target != null) {
                 visualStateService.applyNick(target, null, null);
@@ -189,6 +187,11 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
                 player.sendMessage(getPrefix(player).append(Component.text("Player not found.", NamedTextColor.RED)));
             }
         } else {
+            if (!player.hasPermission("beaconlabs.velocitylink.unnick")
+                    && !player.hasPermission("beaconlabs.admin.unnick")) {
+                player.sendMessage(getPrefix(player).append(Component.text("You do not have permission to remove your nickname.", NamedTextColor.RED)));
+                return false;
+            }
             visualStateService.applyNick(player, null, null);
             sendToProxy(player, "NICK", null, null);
             player.sendMessage(getPrefix(player).append(Component.text("Nickname removed.", NamedTextColor.GRAY)));
@@ -207,10 +210,10 @@ public final class BeaconLabsVelocityLink extends JavaPlugin {
     }
 
     
-    public void handleSettings(org.bukkit.entity.Player player, String[] args) {
-        settingsDialogService.onCommand(player, null, "settings", args);
+    public void openSettings(org.bukkit.entity.Player player, String[] args) {
+        settingsDialogService.openSettings(player, args);
     }
-    public void handleFriends(org.bukkit.entity.Player player, String[] args) {
+    public void openFriends(org.bukkit.entity.Player player, String[] args) {
         try {
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             java.io.DataOutputStream data = new java.io.DataOutputStream(out);
