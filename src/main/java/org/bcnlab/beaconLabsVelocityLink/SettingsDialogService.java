@@ -111,7 +111,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     }
 
     private void fillBorder(Inventory inv) {
-        ItemStack border = new ItemStack(Material.LIGHT_GRAY_STAINED_GLASS_PANE);
+        ItemStack border = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
         ItemMeta meta = border.getItemMeta();
         meta.displayName(Component.empty());
         border.setItemMeta(meta);
