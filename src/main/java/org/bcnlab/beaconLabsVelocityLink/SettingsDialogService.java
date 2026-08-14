@@ -92,7 +92,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player player) {
-            Inventory inv = GuiHolder.create("settings.main", 27, Component.text("Settings").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
+            Inventory inv = GuiHolder.create("settings.main", 27, Component.text("Settings", NamedTextColor.DARK_GRAY).decoration(TextDecoration.ITALIC, false));
             fillBorder(inv);
             
 
@@ -157,7 +157,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     private void openMainMenu(Player player, Inventory existingGui) {
         Inventory gui = existingGui != null && existingGui.getSize() == 27
                 ? existingGui
-                : GuiHolder.create("settings.main", 27, Component.text("Settings"));
+                : GuiHolder.create("settings.main", 27, Component.text("Settings", NamedTextColor.DARK_GRAY));
         gui.clear();
         fillBorder(gui);
 
