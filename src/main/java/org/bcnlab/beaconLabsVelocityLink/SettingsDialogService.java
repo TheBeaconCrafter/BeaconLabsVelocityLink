@@ -89,7 +89,7 @@ public class SettingsDialogService implements PluginMessageListener, Listener, C
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (sender instanceof Player player) {
-            Inventory inv = Bukkit.createInventory(null, 54, Component.text("Settings").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
+            Inventory inv = Bukkit.createInventory(null, 27, Component.text("Settings").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
             fillBorder(inv);
             
 

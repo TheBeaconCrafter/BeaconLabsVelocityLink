@@ -160,7 +160,7 @@ public class CloudDialogService implements PluginMessageListener, Listener {
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        String title = ((net.kyori.adventure.text.TextComponent) event.getView().title()).content();
+        String title = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getView().title());
         if (title.equals("Cloud Servers")) {
             event.setCancelled(true);
             if (event.getCurrentItem() == null || event.getCurrentItem().getItemMeta() == null) return;
@@ -169,9 +169,9 @@ public class CloudDialogService implements PluginMessageListener, Listener {
             List<Component> lore = event.getCurrentItem().getItemMeta().lore();
             if (lore == null || lore.isEmpty()) return;
             
-            String idLine = ((net.kyori.adventure.text.TextComponent) lore.get(0)).content();
+            String idLine = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(lore.get(0));
             String id = idLine.replace("ID: ", "");
-            String name = ((net.kyori.adventure.text.TextComponent) event.getCurrentItem().getItemMeta().displayName()).content();
+            String name = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(event.getCurrentItem().getItemMeta().displayName());
             
             sendAction(player, "INFO", id, name);
         } else if (title.startsWith("Manage: ")) {
@@ -182,7 +182,7 @@ public class CloudDialogService implements PluginMessageListener, Listener {
             ItemStack statusItem = event.getInventory().getItem(4);
             if (statusItem == null || statusItem.getItemMeta() == null || statusItem.getItemMeta().lore() == null) return;
             
-            String idLine = ((net.kyori.adventure.text.TextComponent) statusItem.getItemMeta().lore().get(0)).content();
+            String idLine = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(statusItem.getItemMeta().lore().get(0));
             String id = idLine.replace("ID: ", "");
             
             Material type = event.getCurrentItem().getType();
